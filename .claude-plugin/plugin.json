@@ -1,0 +1,12 @@
+{
+  "name": "1c-dev",
+  "description": "1C:Enterprise development workflow automation: configuration repository round-trip (update from хранилище, XML sync, object locking, partial load, commit) for server infobases via 1cv8.exe DESIGNER batch mode",
+  "version": "1.0.0",
+  "author": {
+    "name": "Sabissimo",
+    "email": "sabanadze@gmail.com"
+  },
+  "repository": "https://github.com/Sabissimo/1C_Developer_Skill",
+  "license": "MIT",
+  "keywords": ["1c", "1c-enterprise", "bsl", "configuration-repository", "windows"]
+}

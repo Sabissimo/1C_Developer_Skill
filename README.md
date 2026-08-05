@@ -25,14 +25,26 @@ interview once, and then just give it tasks. Claude will, on its own:
 
 ## Install
 
+**Option A — as a Claude Code plugin (recommended):**
+
+```
+/plugin marketplace add Sabissimo/1C_Developer_Skill
+/plugin install 1c-dev@1c-developer-skill
+```
+
+Updates later: `/plugin marketplace update 1c-developer-skill`.
+
+**Option B — manual, as a user-level skill:**
+
 ```powershell
 git clone https://github.com/Sabissimo/1C_Developer_Skill.git
 cd 1C_Developer_Skill
 powershell -NoProfile -File install.ps1   # or: bash install.sh
 ```
 
-This copies the skill to `~/.claude/skills/1c-dev`. Restart your Claude Code session,
-open your 1C project directory, and say something like: *"Это 1С-проект, настрой его"*.
+This copies `skills/1c-dev` to `~/.claude/skills/1c-dev` (use one option, not both, or
+Claude will see the skill twice). Either way, restart your Claude Code session, open
+your 1C project directory, and say something like: *"Это 1С-проект, настрой его"*.
 
 ## What gets created in your project
 
@@ -45,12 +57,13 @@ open your 1C project directory, and say something like: *"Это 1С-проек�
 
 ## How it works
 
-Scripts in `scripts/ps` (PowerShell) and `scripts/sh` (Git Bash) — same CLI contract,
-same exit codes, last stdout line is a JSON result. They drive `1cv8.exe DESIGNER` in
-batch mode with full log checking (the designer is known to exit 0 on some failures).
+Scripts in `skills/1c-dev/scripts/ps` (PowerShell) and `skills/1c-dev/scripts/sh`
+(Git Bash) — same CLI contract, same exit codes, last stdout line is a JSON result.
+They drive `1cv8.exe DESIGNER` in batch mode with full log checking (the designer is
+known to exit 0 on some failures).
 Details: [docs/architecture.md](docs/architecture.md) ·
-[references/script-contract.md](references/script-contract.md) ·
-[references/designer-cli.md](references/designer-cli.md).
+[script-contract.md](skills/1c-dev/references/script-contract.md) ·
+[designer-cli.md](skills/1c-dev/references/designer-cli.md).
 
 Change detection is version-based: the skill remembers the last consumed repository
 version and asks the designer for a report from `N+1` — a non-empty report means
@@ -59,14 +72,14 @@ version and asks the designer for a report from `N+1` — a non-empty report mea
 ## Testing
 
 ```bash
-bash scripts/tests/run-tests.sh        # bash variant + parity with PowerShell
-pwsh -NoProfile scripts/tests/run-tests.ps1
+bash skills/1c-dev/scripts/tests/run-tests.sh        # bash variant + parity with PowerShell
+pwsh -NoProfile skills/1c-dev/scripts/tests/run-tests.ps1
 ```
 
 Anything touching a real infobase can't run in CI — see the live smoke-test checklist
-in [references/troubleshooting.md](references/troubleshooting.md), and its
-"first live run" section for the two designer-format assumptions worth verifying on
-your platform build.
+in [troubleshooting.md](skills/1c-dev/references/troubleshooting.md): the full cycle
+(including the lock-conflict path) has been verified live on 8.3.19.1351, and its
+"first live run" section lists what to re-verify on a different platform build.
 
 ## Limitations (v1)
 

@@ -5,18 +5,22 @@ configuration-repository round-trip: update from хранилище → dump to 
 edit XML/BSL → partial load back → commit. It targets **server infobases only** and drives
 the 1C Designer in batch mode (`1cv8.exe DESIGNER /...`).
 
+The skill itself lives in `skills/1c-dev/` (SKILL.md + scripts + references); the repo
+root additionally carries the Claude Code plugin-marketplace manifests
+(`.claude-plugin/marketplace.json`, `.claude-plugin/plugin.json`), installers and docs.
+
 # Tech Stack
 
-- **PowerShell 5.1-compatible scripts** in `scripts/ps/` (must also run on pwsh 7).
-- **Git Bash (POSIX sh/bash) scripts** in `scripts/sh/` — a 1:1 mirror of `scripts/ps/`.
+- **PowerShell 5.1-compatible scripts** in `skills/1c-dev/scripts/ps/` (must also run on pwsh 7).
+- **Git Bash (POSIX sh/bash) scripts** in `skills/1c-dev/scripts/sh/` — a 1:1 mirror of `scripts/ps/`.
 - No other runtimes. `jq`/`python` may be used in bash scripts only behind availability
   checks with fallbacks (final fallback: `powershell.exe -Command`).
 
 # Cross-Shell Parity — THE core rule
 
-- Every operation exists in BOTH `scripts/ps/*.ps1` and `scripts/sh/*.sh`.
-- Both variants follow the contract in `references/script-contract.md`: same behavior, same
-  exit codes, same final-line JSON on stdout, human progress on stderr.
+- Every operation exists in BOTH `scripts/ps/*.ps1` and `scripts/sh/*.sh` (under `skills/1c-dev/`).
+- Both variants follow the contract in `skills/1c-dev/references/script-contract.md`: same
+  behavior, same exit codes, same final-line JSON on stdout, human progress on stderr.
 - Any behavior change MUST be applied to both variants and to `script-contract.md` in the
   same commit. Never let the variants drift.
 
@@ -36,11 +40,12 @@ the 1C Designer in batch mode (`1cv8.exe DESIGNER /...`).
 
 # Testing
 
-- Parity tests live in `scripts/tests/` — the same case table runs against both variants
-  and diffs their outputs. Run them after any script change:
-  `pwsh -NoProfile scripts/tests/run-tests.ps1` and `bash scripts/tests/run-tests.sh`.
+- Parity tests live in `skills/1c-dev/scripts/tests/` — the same case table runs against
+  both variants and diffs their outputs. Run them after any script change:
+  `pwsh -NoProfile skills/1c-dev/scripts/tests/run-tests.ps1` and
+  `bash skills/1c-dev/scripts/tests/run-tests.sh`.
 - Anything touching a real infobase/repository cannot run in CI — mark it clearly and
-  verify via the live smoke-test checklist in `references/troubleshooting.md`.
+  verify via the live smoke-test checklist in `skills/1c-dev/references/troubleshooting.md`.
 
 # Docs
 

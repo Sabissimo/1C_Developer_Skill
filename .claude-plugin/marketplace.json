@@ -1,0 +1,15 @@
+{
+  "name": "1c-developer-skill",
+  "owner": {
+    "name": "Sabissimo",
+    "email": "sabanadze@gmail.com"
+  },
+  "description": "1C:Enterprise development automation for Claude Code — configuration repository round-trip (update, lock, edit XML/BSL, load, commit) for server infobases",
+  "plugins": [
+    {
+      "name": "1c-dev",
+      "source": "./",
+      "description": "1C configuration-repository workflow: update from хранилище, XML sync, object locking, partial load, commit"
+    }
+  ]
+}

@@ -20,11 +20,16 @@ scripts/ps/*.ps1  ◄─contract─►  scripts/sh/*.sh          (identical beha
    └── configuration repository (хранилище) — tcp:// or file share
 ```
 
+The skill ships two ways from the same repo: as a Claude Code **plugin**
+(`.claude-plugin/marketplace.json` + `.claude-plugin/plugin.json` at the repo root,
+skill auto-discovered from `skills/1c-dev/`) and as a **manual user-level skill**
+(`install.ps1` / `install.sh` copy `skills/1c-dev/` to `~/.claude/skills/1c-dev`).
+
 ## Per-project files (in each 1C project, all gitignored)
 
 | File | Owner | Purpose |
 |---|---|---|
-| `1c-project.json` | setup interview | connection settings, creds, dirs (schema: references/script-contract.md) |
+| `1c-project.json` | setup interview | connection settings, creds, dirs (schema: skills/1c-dev/references/script-contract.md) |
 | `.1c-state.json` | scripts | `lastRepoVersion` + `lastSync` — the change-detection anchor |
 | `<xmlDir>/` | designer dumps | configuration source of truth for editing (usually `src/`, committed to git) |
 | `<tempXmlDir>/` | sync-xml fallback | scratch area for full dumps, safe to delete |
@@ -32,8 +37,8 @@ scripts/ps/*.ps1  ◄─contract─►  scripts/sh/*.sh          (identical beha
 
 ## The scripts
 
-Each exists twice (`scripts/ps/`, `scripts/sh/`) with one CLI contract
-(references/script-contract.md). Cores (`Common.ps1` / `common.sh`) provide: config and
+Each exists twice (`skills/1c-dev/scripts/ps/`, `skills/1c-dev/scripts/sh/`) with one CLI contract
+(skills/1c-dev/references/script-contract.md). Cores (`Common.ps1` / `common.sh`) provide: config and
 state I/O, `1cv8.exe` resolution (configured version or newest installed), a designer
 runner (always `/DisableStartupDialogs /DisableStartupMessages /Out`, checks exit code
 **and** scans the log), and encoding-tolerant readers (UTF-16/UTF-8/CP1251).
