@@ -234,7 +234,19 @@ run_designer() {
 
 designer_errors() {
     # Prints error-looking lines from the last designer log.
-    printf '%s\n' "$DESIGNER_LOG_TEXT" | grep -E "$DESIGNER_ERROR_PATTERN" || true
+    # Metadata names may themselves contain error words — /UpdateDBCfg reports
+    # "Новый объект: РегистрСведений.ОшибкиЗакрытияМесяца" on success — so the match is
+    # made against a probe copy with dotted 1C identifiers blanked out, while the
+    # original line is what gets reported. Genuine messages such as
+    # "Ошибка: объект Справочник.Товары ..." still trip the pattern. The dotted-token
+    # match is byte-safe, so it holds regardless of awk's locale handling of Cyrillic.
+    printf '%s\n' "$DESIGNER_LOG_TEXT" \
+        | awk -v pat="$DESIGNER_ERROR_PATTERN" '
+            {
+                probe = $0
+                gsub(/[^[:space:]]+\.[^[:space:]]+/, " ", probe)
+                if (probe ~ pat) print $0
+            }' || true
 }
 
 assert_designer_success() {
@@ -261,9 +273,17 @@ repo_versions_from_report() {
         printf '%s\n' "$text" \
             | grep -oE '\{"#","[^"]*"\}' \
             | sed -E 's/^\{"#","(.*)"\}$/\1/' \
+            | sed $'s/\xc2\xa0/ /g; s/\xe2\x80\xaf/ /g' \
             | awk '
+                # The designer formats the number with the locale thousands separator
+                # ("2,555", "2 555", "2'"'"'555"), so accept grouped digits and strip the
+                # separators. A plain /^[0-9]+$/ test silently caps detection at 999.
                 prev == "Версия:" || prev == "Version:" {
-                    if ($0 ~ /^[0-9]+$/) print $0
+                    v = $0
+                    if (v ~ /^[0-9]+$/ || v ~ /^[0-9]{1,3}([,. '"'"'][0-9]{3})+$/) {
+                        gsub(/[^0-9]/, "", v)
+                        print v
+                    }
                 }
                 { prev = $0 }
               ' \

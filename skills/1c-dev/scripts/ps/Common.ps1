@@ -224,7 +224,12 @@ function Get-DesignerErrors($DesignerResult) {
     # Failure = non-zero exit code OR error-looking lines in the /Out log.
     $errorLines = @()
     foreach ($line in ($DesignerResult.Log -split "`r?`n")) {
-        if ($line -match $DESIGNER_ERROR_PATTERN) { $errorLines += $line.Trim() }
+        # Metadata names may themselves contain error words — /UpdateDBCfg reports
+        # "Новый объект: РегистрСведений.ОшибкиЗакрытияМесяца" on success — so match
+        # against a probe copy with dotted 1C identifiers blanked out. Genuine messages
+        # such as "Ошибка: объект Справочник.Товары ..." still trip the pattern.
+        $probe = $line -replace '[\p{L}_][\w]*(\.[\p{L}_][\w]*)+', ' '
+        if ($probe -match $DESIGNER_ERROR_PATTERN) { $errorLines += $line.Trim() }
     }
     if ($DesignerResult.ExitCode -ne 0 -and -not $errorLines) {
         $errorLines += "designer exit code $($DesignerResult.ExitCode)"
@@ -259,7 +264,12 @@ function Get-RepoVersionsFromReport([string]$ReportPath) {
             $label = $cells[$i].Groups[1].Value.Trim()
             if ($label -eq 'Версия:' -or $label -eq 'Version:') {
                 $value = $cells[$i + 1].Groups[1].Value.Trim()
-                if ($value -match '^\d+$') { $versions += [int]$value }
+                # The designer formats the number with the locale's thousands separator
+                # ("2,555", "2 555", "2'555"), so accept grouped digits and strip the
+                # separators. A plain '^\d+$' test silently caps detection at 999.
+                if ($value -match '^\d+$' -or $value -match "^\d{1,3}([,.\s'’]\d{3})+$") {
+                    $versions += [int]($value -replace '\D', '')
+                }
             }
         }
     } else {

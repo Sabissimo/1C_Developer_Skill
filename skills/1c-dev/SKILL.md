@@ -36,6 +36,10 @@ When the user says a project is a 1C project and `1c-project.json` doesn't exist
 1. Interview the user for: platform version (optional), infobase server & name, infobase
    user/password, repository path (`tcp://…` or a UNC/local dir), repository
    user/password, XML dir (default `src`), temp XML dir (default `.1c-temp`).
+   The XML dir must contain configuration files **only** — a full sync deletes anything
+   the dump does not produce. If the project already has its dump at the repository
+   root, move it into `src/` before setting up, or the first full sync will delete
+   `README.md` and `1c-project.json` itself.
 2. Write `1c-project.json` (schema in script-contract.md) into the project root.
 3. Ensure `.gitignore` covers: `1c-project.json`, `.1c-state.json`, `.1c-temp/`, `.1c-work/`.
 4. Run `test-connection` — stop and report if it fails.

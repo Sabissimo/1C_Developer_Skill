@@ -13,6 +13,9 @@ case_count=0
 
 # ---- mapping cases ----
 while IFS='|' read -r path expected; do
+    # mapping-cases.txt is covered by "* text=auto", so it lands CRLF on a Windows
+    # checkout — strip the CR or every comparison fails against an invisible \r.
+    expected="${expected%$'\r'}"
     [ -n "$path" ] || continue
     case_count=$((case_count + 1))
     actual="$(map_path_to_object "$path")" || actual="__ERROR__"
@@ -50,6 +53,43 @@ done
 sig="$(head -c 3 "$out_file" | od -An -tx1 | tr -d ' \n')"
 if [ "$sig" != "efbbbf" ]; then
     echo "FAIL objects.xml: missing UTF-8 BOM"
+    failures=$((failures + 1))
+fi
+
+# ---- repository report: grouped thousands separators (regression: detection capped at 999) ----
+case_count=$((case_count + 1))
+report_file="$(mktemp -t 1c-dev-test-report-XXXX.txt)"
+cat > "$report_file" <<'REPORT'
+MOXCEL
+{"#","Версия:"}
+{"#","1"}
+{"#","Версия:"}
+{"#","999"}
+{"#","Версия:"}
+{"#","2,555"}
+{"#","Версия:"}
+{"#","12 345"}
+{"#","Версия конфигурации:"}
+{"#","8.3.14"}
+REPORT
+versions="$(repo_versions_from_report "$report_file" | tr '\n' ' ' | sed 's/ *$//')"
+if [ "$versions" != "1 999 2555 12345" ]; then
+    echo "FAIL repo report: got '$versions' (expected '1 999 2555 12345')"
+    failures=$((failures + 1))
+fi
+rm -f "$report_file"
+
+# ---- designer errors: object names containing error words are not failures ----
+case_count=$((case_count + 1))
+DESIGNER_LOG_TEXT='Новый объект: Константа.УведомлятьОбОшибкахМеханизмаОнлайнСервисовРО
+Новый объект: РегистрСведений.ДокументыСОшибкамиПроверкиКонтрагентов
+Новый объект: РегистрСведений.ОшибкиЗакрытияМесяца
+Ошибка: объект Справочник.Товары не может быть изменен
+Не удалось обновить конфигурацию базы данных'
+flagged="$(designer_errors | grep -c . || true)"
+if [ "$flagged" != "2" ]; then
+    echo "FAIL designer errors: flagged $flagged line(s), expected 2"
+    designer_errors
     failures=$((failures + 1))
 fi
 

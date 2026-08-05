@@ -61,12 +61,22 @@ runner (always `/DisableStartupDialogs /DisableStartupMessages /Out`, checks exi
 `ConfigurationRepositoryReport -NBegin last+1` returns exactly the newer versions —
 non-empty means "update needed". This lets Claude auto-check before every task.
 
+The report itself is an MXL spreadsheet even when written to a `.txt` path, and the
+version cell carries the designer's *locale* number formatting — `{"#","2,555"}`, not
+`2555`. The parsers therefore accept grouped digits and strip the separators; a naive
+integer test caps detection at 999 and poisons `.1c-state.json` silently.
+
 **Hybrid XML sync.** Default is the designer's incremental dump (`-update -force`),
 which itself touches only changed files (driven by `ConfigDumpInfo.xml`). When that
 index is missing or the incremental dump fails, a full dump goes to `tempXmlDir` and a
 byte-diff mirrors it into `xmlDir` (copy changed/new, delete vanished, prune empty
 dirs) — so git history never sees rewrites of unchanged files. An empty `xmlDir` gets a
 direct full dump (`initial`).
+
+Because the full path deletes whatever the dump does not contain, **`xmlDir` must hold
+configuration files and nothing else**. Point it at a subdirectory (`src`), never at the
+repository root — at the root a full sync takes `README.md`, `.gitattributes` and
+`1c-project.json` with it. (`.git` survives only because it is hidden.)
 
 **Lock accounting.** `lock-objects` maps file paths to repository objects
 (`Mapping.ps1` / `mapping.sh`; forms and templates are separately lockable) and locks
