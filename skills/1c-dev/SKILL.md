@@ -69,14 +69,26 @@ For every task that changes configuration files:
 2. **Lock first**: `lock-objects --files "Catalogs/Товары/Ext/ObjectModule.bsl,…"`.
    - Exit 3 = someone else holds the lock. **STOP immediately**, show the `conflict`
      lines to the user, do not edit anything.
-   - Editing a file whose object is not locked will make the later commit fail — never
+   - The lock gates the **load**, not just the commit. `load-from-xml` on an object
+     nobody holds fails within seconds: `Загрузка невозможна: объект метаданных <Имя>
+     не захвачен в хранилище!`. Locking first is a precondition, not etiquette — never
      skip this step. If mapping fails (exit 4), lock by explicit names:
      `lock-objects --objects "Catalog.Товары"`.
 3. **Edit** the XML/BSL files. Rules:
    - Preserve encoding: files are UTF-8 **with BOM** — do not strip it.
    - Never edit `ConfigDumpInfo.xml` by hand.
-   - New objects (a file that doesn't exist yet) cannot be partially loaded reliably —
-     for new top-level objects prefer creating them via the Designer, then re-sync.
+   - A **new** object must be loaded together with its parent, because the parent is
+     what enumerates its children: a new form, attribute or template needs the owner's
+     `.xml` in the file list; a new *top-level* object needs `Configuration.xml`, and
+     therefore the root `Configuration` object locked. Watch the trap that
+     `CommonForms/` and `CommonTemplates/` are themselves top-level (see
+     [references/file-to-object-map.md](references/file-to-object-map.md)) — a new
+     common form takes the root lock, a new form on an existing catalog does not.
+   - Prefer the Designer for new **top-level** objects because of cost, not because it
+     is refused: loading `Configuration.xml` reconciles the whole object tree and
+     rebuilds the dump index, so it is a near-full load. Measured 2026-08-05 on a
+     ~28,000-file configuration: still running after 17 minutes, aborted by us rather
+     than by an error. Whether such a load completes cleanly is **unverified**.
 4. **Finish the task**:
    a. `load-from-xml --files "<same file list>"` — partial load + DB update.
    b. `commit-to-repo --comment "<task summary>"` — commits everything locked in this

@@ -41,6 +41,7 @@ which appears on a repository with fewer than 1 000 versions.
 | exit 2, "No 1C platform installation found" | platform in a non-standard dir | put the full path logic in config: set `platformVersion` to an installed version, or install under `Program Files\1cv8` |
 | exit 3 on lock | object captured by another repository user | wait/ask that user to release; **do not edit** |
 | exit 1 on `update-from-repo`, log mentions "монопольн"/"exclusive" | sessions are open on the dev base | close Designer/Enterprise sessions on the dev base |
+| exit 1 on `load-from-xml` within seconds, log mentions "не захвачен"/"not locked" | the object is not locked — the хранилище refuses the **load**, not just the commit. With `Configuration.xml` in the file list the object named is `Configuration` | `lock-objects` for the object the log names (`--objects "Configuration"` for the root), then retry the load |
 | exit 1 on `commit`, log mentions "не захвачен"/"not locked" | commit set ≠ locked set (state lost) | re-run `lock-objects`, or commit from the Designer once |
 | exit 1 on `UpdateDBCfg` | structure change needs exclusive access | ensure nobody (including you) has the base open |
 | `latestVersion` stops at a suspiciously round **999** and every later `get-repo-changes` reports hundreds of "new" versions | the designer formats the version cell with the locale thousands separator (`{"#","2,555"}`); pre-1.0.1 parsers validated with `^\d+$` and dropped anything ≥ 1000 | fixed in 1.0.1; on an older copy, delete `.1c-state.json` after upgrading so the bad `lastRepoVersion` is re-learned |
@@ -60,9 +61,12 @@ which appears on a repository with fewer than 1 000 versions.
    Designer's repository window.
 5. Lock the same object as another repository user from the Designer → `lock-objects`
    again → exit 3.
-6. Edit a comment in the module, `load-from-xml --files ...` → ok; the change is visible
+6. `load-from-xml --files "<a file whose object is NOT locked>"` → exit 1 within seconds,
+   log contains "не захвачен". Confirms the хранилище gates the load, not just the
+   commit. Safe: nothing is locked, nothing is committed, nothing changes.
+7. Edit a comment in the module, `load-from-xml --files ...` → ok; the change is visible
    in the Designer.
-7. `commit-to-repo --comment "smoke test"` → ok; new version in the repository history;
+8. `commit-to-repo --comment "smoke test"` → ok; new version in the repository history;
    lock released.
-8. `update-from-repo` from a second machine/base → the comment arrives.
-9. `unlock-objects` after a fresh lock → lock disappears in the Designer.
+9. `update-from-repo` from a second machine/base → the comment arrives.
+10. `unlock-objects` after a fresh lock → lock disappears in the Designer.
