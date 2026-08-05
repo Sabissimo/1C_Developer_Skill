@@ -22,7 +22,7 @@ object_names=()
 if [ -n "$objects" ]; then
     while IFS= read -r name; do
         [ -n "$name" ] && object_names+=("$name")
-    done < <(printf '%s' "$objects" | tr ',' '\n' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
+    done < <(printf '%s\n' "$objects" | tr ',' '\n' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
 else
     while IFS= read -r name; do
         [ -n "$name" ] && object_names+=("$name")

@@ -23,7 +23,7 @@ paths=()
 if [ -n "$files" ]; then
     while IFS= read -r path; do
         [ -n "$path" ] && paths+=("$path")
-    done < <(printf '%s' "$files" | tr ',' '\n' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
+    done < <(printf '%s\n' "$files" | tr ',' '\n' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
 fi
 if [ -n "$list_file" ]; then
     [ -f "$list_file" ] || die "$EXIT_USAGE" "List file not found: $list_file"

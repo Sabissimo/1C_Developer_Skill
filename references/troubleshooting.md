@@ -1,20 +1,27 @@
 # Troubleshooting
 
-## First live run — verify these once per environment
+## Verified live (8.3.19.1351, Windows 11, tcp:// repository)
 
-The scripts follow documented designer behavior, but 1C platform builds differ. On the
-first real project, verify:
+The full cycle — test-connection, initial dump, update-from-repo, lock, partial load
+via `-listFile`, commit with comment, unlock, version detection — passed end-to-end.
+In particular: objects.xml version 1.0 is accepted by Lock/Commit/Unlock, and
+`/ConfigurationRepositoryReport` writes **MXL (MOXCEL) data even into a `.txt` file** —
+the report parsers handle both MXL cell pairs and plain text. Re-locking an object the
+same repository user already holds succeeds silently (idempotent); exit 3 fires only
+when *another* user holds it.
 
-1. **objects.xml is accepted** by `/ConfigurationRepositoryLock` on your platform build.
-   If the designer complains about the format or about subordinate names
-   (`Catalog.X.Form.Y`), try locking the parent (`--objects "Catalog.X"`) — and if that
-   is what your platform needs, report it so the mapping can switch to
-   `includeChildObjects="true"` on parents.
+## First live run on a different platform build — verify once
+
+1. **objects.xml is accepted** by `/ConfigurationRepositoryLock`. If the designer
+   complains about the format or about subordinate names (`Catalog.X.Form.Y`), try
+   locking the parent (`--objects "Catalog.X"`) — and if that is what your platform
+   needs, report it so the mapping can switch to `includeChildObjects="true"`.
 2. **`-listFile` for `/LoadConfigFromFiles`** works (8.3.10+). If not, fall back to
    `-files "p1,p2"` with comma-separated absolute paths.
-3. **Report parsing** finds versions: check `.1c-work/repo-report.txt` contains
-   `Версия: N` (or `Version: N`) lines. A differently-localized platform needs the
-   regex in `Get-RepoVersionsFromReport` / `repo_versions_from_report` extended.
+3. **Report parsing** finds versions (see the MXL note above): run
+   `get-repo-changes --full` and check `latestVersion` > 0. A differently-localized
+   platform needs the label list in `Get-RepoVersionsFromReport` /
+   `repo_versions_from_report` extended ("Версия:", "Version:").
 
 ## Common failures
 
@@ -29,6 +36,7 @@ first real project, verify:
 | incremental sync silently falls back to full every time | `ConfigDumpInfo.xml` deleted/broken in xmlDir | let one full sync finish; never hand-edit that file |
 | Cyrillic garbage in logs shown by scripts | non-standard OS code page | logs are decoded UTF-16/UTF-8/CP1251 automatically; other encodings need `Read-TextSmart`/`read_text_smart` extended |
 | designer window pops up and hangs | a dialog the batch switches can't suppress (e.g. base not bound to the repository) | bind the base to the repository manually once; check creds |
+| exit 1 instantly, no `/Out` log, when calling `1cv8.exe` **manually** from Git Bash | MSYS rewrites `/S`, `/Out` etc. into filesystem paths | prefix the call with `MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*'` (the skill's `run_designer` already does) |
 | `1c-project.json` parse error in Git Bash | no jq/python and PowerShell missing from PATH | install jq (`pacman -S jq` in Git for Windows SDK) or ensure `powershell.exe` is reachable |
 
 ## Live smoke-test checklist (per new environment)

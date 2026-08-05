@@ -246,11 +246,27 @@ function Assert-DesignerSuccess($Context, $DesignerResult, [string]$Operation) {
 
 # ---- Repository report parsing ----
 function Get-RepoVersionsFromReport([string]$ReportPath) {
+    # The designer writes the report as an MXL spreadsheet (MOXCEL) on most builds even
+    # when the file name ends in .txt; some builds write plain text. Handle both.
     $text = Read-TextSmart $ReportPath
     $versions = @()
-    foreach ($line in ($text -split "`r?`n")) {
-        if ($line -match '^\s*(Версия|Version)\s*:?\s*(\d+)\s*$') {
-            $versions += [int]$Matches[2]
+
+    if ($text -match 'MOXCEL' -or $text -match '\{"#","') {
+        # MXL: versions are cell pairs — a {"#","Версия:"} label cell whose next string
+        # cell holds the number. "Версия конфигурации:" etc. must not match.
+        $cells = [regex]::Matches($text, '\{"#","([^"]*)"\}')
+        for ($i = 0; $i -lt $cells.Count - 1; $i++) {
+            $label = $cells[$i].Groups[1].Value.Trim()
+            if ($label -eq 'Версия:' -or $label -eq 'Version:') {
+                $value = $cells[$i + 1].Groups[1].Value.Trim()
+                if ($value -match '^\d+$') { $versions += [int]$value }
+            }
+        }
+    } else {
+        foreach ($line in ($text -split "`r?`n")) {
+            if ($line -match '^\s*(Версия|Version)\s*:?\s*(\d+)\s*$') {
+                $versions += [int]$Matches[2]
+            }
         }
     }
     return ($versions | Sort-Object -Unique)

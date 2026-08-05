@@ -223,7 +223,10 @@ run_designer() {
 
     info "designer: $*"
     set +e
-    "$ONEC_EXE" "${args[@]}"
+    # MSYS/Git Bash rewrites args starting with '/' into filesystem paths before they
+    # reach Windows binaries — that turns /Out, /S etc. into garbage. Disable it for
+    # this invocation only (MSYS_NO_PATHCONV = Git for Windows, ARG_CONV_EXCL = MSYS2).
+    MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' "$ONEC_EXE" "${args[@]}"
     DESIGNER_EXIT=$?
     set -e
     DESIGNER_LOG_TEXT="$(read_text_smart "$DESIGNER_LOG_FILE")"
@@ -248,5 +251,24 @@ assert_designer_success() {
 # ---- Repository report parsing ----
 repo_versions_from_report() {
     # repo_versions_from_report <report-file> -> sorted unique version numbers, one per line
-    read_text_smart "$1" | sed -nE 's/^[[:space:]]*(Версия|Version):?[[:space:]]*([0-9]+)[[:space:]]*$/\2/p' | sort -n -u
+    # The designer writes the report as an MXL spreadsheet (MOXCEL) on most builds even
+    # when the file name ends in .txt; some builds write plain text. Handle both.
+    local text
+    text="$(read_text_smart "$1" | tr -d '\0')"
+    if printf '%s' "$text" | head -c 64 | grep -q 'MOXCEL' || printf '%s' "$text" | grep -q '{"#","'; then
+        # MXL: versions are cell pairs — a {"#","Версия:"} label cell whose next string
+        # cell holds the number. "Версия конфигурации:" etc. must not match.
+        printf '%s\n' "$text" \
+            | grep -oE '\{"#","[^"]*"\}' \
+            | sed -E 's/^\{"#","(.*)"\}$/\1/' \
+            | awk '
+                prev == "Версия:" || prev == "Version:" {
+                    if ($0 ~ /^[0-9]+$/) print $0
+                }
+                { prev = $0 }
+              ' \
+            | sort -n -u
+    else
+        printf '%s\n' "$text" | sed -nE 's/^[[:space:]]*(Версия|Version):?[[:space:]]*([0-9]+)[[:space:]]*$/\2/p' | sort -n -u
+    fi
 }
