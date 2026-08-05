@@ -84,11 +84,19 @@ For every task that changes configuration files:
      `CommonForms/` and `CommonTemplates/` are themselves top-level (see
      [references/file-to-object-map.md](references/file-to-object-map.md)) — a new
      common form takes the root lock, a new form on an existing catalog does not.
-   - Prefer the Designer for new **top-level** objects because of cost, not because it
-     is refused: loading `Configuration.xml` reconciles the whole object tree and
-     rebuilds the dump index, so it is a near-full load. Measured 2026-08-05 on a
+   - Partial load **creates new objects fine, including top-level ones** — nothing is
+     refused. What differs is cost: a new *top-level* object changes
+     `Configuration.xml`, and loading that file reconciles the whole object tree and
+     rebuilds the dump index — a near-full reload. Measured 2026-08-05 on a
      ~28,000-file configuration: still running after 17 minutes, aborted by us rather
-     than by an error. Whether such a load completes cleanly is **unverified**.
+     than by an error; whether it completes cleanly is **unverified**.
+   - So when a task needs a new **top-level** object, pause and let the user choose:
+     - **Suggested**: the user creates the empty object in the Designer (seconds; the
+       Designer takes the root lock interactively), then `sync-xml` picks it up and
+       the rest of the task proceeds as normal cheap partial loads.
+     - **Full-reload path**: stay automated — lock the root
+       (`lock-objects --objects "Configuration"`), include `Configuration.xml` in the
+       file list, and accept the near-full reload time.
 4. **Finish the task**:
    a. `load-from-xml --files "<same file list>"` — partial load + DB update.
    b. `commit-to-repo --comment "<task summary>"` — commits everything locked in this
