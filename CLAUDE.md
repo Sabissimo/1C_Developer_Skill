@@ -1,313 +1,75 @@
+# Project: 1C Developer Skill
+
+This repository IS a Claude Code skill (`1c-dev`) that automates the 1C:Enterprise
+configuration-repository round-trip: update from хранилище → dump to XML → lock objects →
+edit XML/BSL → partial load back → commit. It targets **server infobases only** and drives
+the 1C Designer in batch mode (`1cv8.exe DESIGNER /...`).
+
 # Tech Stack
 
-- React + TypeScript (frontend), Go (backend), PostgreSQL.
-- Go and PostgreSQL are Docker-containerized. React runs locally for fast iteration without rebuilding containers on every change.
+- **PowerShell 5.1-compatible scripts** in `scripts/ps/` (must also run on pwsh 7).
+- **Git Bash (POSIX sh/bash) scripts** in `scripts/sh/` — a 1:1 mirror of `scripts/ps/`.
+- No other runtimes. `jq`/`python` may be used in bash scripts only behind availability
+  checks with fallbacks (final fallback: `powershell.exe -Command`).
 
-# Go Preferences
+# Cross-Shell Parity — THE core rule
 
-Always use these libraries — no alternatives unless explicitly told otherwise:
-
-- **ORM:** GORM (`gorm.io/gorm`)
-- **HTTP framework:** Fiber v2 (`github.com/gofiber/fiber/v2`)
-- **Logging:** slog (stdlib `log/slog`)
-- **HTTP client:** req (`github.com/imroc/req/v3`)
-- **Authorization:** Casbin v3 (`github.com/casbin/casbin/v3`)
-- **CLI:** Cobra (`github.com/spf13/cobra`)
-- **Configuration:** Viper (`github.com/spf13/viper`)
-- **Migrations:** GORM AutoMigrate
-- **Architecture:** Domain-Driven Design (DDD)
-- **Project layout:** `/cmd`, `/internal`, `/pkg`
-
-# React Preferences
-
-- **Bundler:** Vite
-- **CSS:** Tailwind CSS
+- Every operation exists in BOTH `scripts/ps/*.ps1` and `scripts/sh/*.sh`.
+- Both variants follow the contract in `references/script-contract.md`: same behavior, same
+  exit codes, same final-line JSON on stdout, human progress on stderr.
+- Any behavior change MUST be applied to both variants and to `script-contract.md` in the
+  same commit. Never let the variants drift.
 
 # Code Quality
 
 - Always handle errors explicitly — never ignore or silently swallow them.
-- No magic strings or numbers — use constants.
-- Keep functions under 40 lines. If longer, split.
-- Write table-driven tests in Go.
-- Name things clearly — no single-letter variables outside loops.
-- One function, one job. If it does two things, split it.
+- No magic strings or numbers — use named constants/variables at the top of scripts.
+- Keep functions small and single-purpose.
+- Designer calls: always `/DisableStartupDialogs /DisableStartupMessages /Out <log>`;
+  check the exit code AND scan the log — the designer sometimes exits 0 on failure.
+- All text output files the designer consumes (objects.xml, list files) are UTF-8 with BOM.
+- Logs/reports from the designer may be UTF-8, UTF-16 or CP1251 — always read through the
+  encoding-detection helpers in `Common.ps1` / `common.sh`.
+
+# Testing
+
+- Parity tests live in `scripts/tests/` — the same case table runs against both variants
+  and diffs their outputs. Run them after any script change:
+  `pwsh -NoProfile scripts/tests/run-tests.ps1` and `bash scripts/tests/run-tests.sh`.
+- Anything touching a real infobase/repository cannot run in CI — mark it clearly and
+  verify via the live smoke-test checklist in `references/troubleshooting.md`.
+
+# Docs
+
+- `docs/architecture.md` describes the end-to-end flow — update it whenever a workflow or
+  script contract changes, in the same session.
+- `SKILL.md` is the skill entry point; keep its workflow steps in sync with the scripts.
 
 # Rules
 
 - Think first, read relevant files before answering. Never speculate about code you haven't opened.
-- If a file is referenced, read it before responding. Investigate before answering — no hallucinations.
+- If a file is referenced, read it before responding.
 - Give a high-level explanation of changes at every step.
-- Commit and push whenever you see fit — no need to wait for approval.
-
-# Project Kickoff — MANDATORY FIRST STEP
-
-**NO CODE may be written until the kickoff is complete.**
-
-When the user starts a new project (says "let's start", "let's go", "new project", or similar), you MUST enter plan mode and run the kickoff interview before doing anything else. Do NOT skip this. Do NOT assume answers. Do NOT rush through it.
-
-## Kickoff Interview Rules:
-
-- **Use plan mode** — this is a question-and-answer conversation, not coding.
-- **Ask ONE group of questions at a time.** Wait for the user's response before moving to the next group.
-- **Ask as many follow-up questions as needed.** More questions = better understanding. Do NOT move to the next group until you fully understand the current one.
-- **If an answer is vague, dig deeper.** Ask for specifics, examples, edge cases. Never accept "whatever you think is best" — push for a real answer.
-- **After each answer, summarize what you understood** and ask if it's correct before moving on.
-- **If new questions come up based on the user's answers, ask them.** The groups below are the minimum — go beyond them whenever needed.
-
-## Kickoff Interview — minimum questions per group:
-
-**Group 1 — The Big Picture:**
-
-- What is this app? Describe it in a few sentences.
-- What problem does it solve? Who is it for?
-- Is there an existing app or competitor that's similar? (helps me understand the vision)
-- What's the scale? (personal project, startup MVP, enterprise tool?)
-
-**Group 2 — Users & Access:**
-
-- What user roles exist? (e.g., admin, regular user, guest)
-- What can each role do? What are they restricted from?
-- How do users sign up and log in? (email/password, OAuth, magic link, etc.)
-- Is there an onboarding flow? What happens after first login?
-
-**Group 3 — Core Features:**
-
-- List every feature you want in the app, even if it's just a name.
-- For each feature: one sentence on what it does.
-- Which features are MVP (must-have for launch) vs. nice-to-have?
-- For each MVP feature: describe the happy path (what does the user do step by step?)
-
-**Group 4 — Pages & UI:**
-
-- What pages/screens does the app have?
-- What does the main dashboard or landing page show?
-- Any specific UI preferences? (sidebar nav, top nav, dark mode, etc.)
-- Any reference designs or apps whose UI you like?
-
-**Group 5 — Data & Relationships:**
-
-- What are the main things (entities) the app stores? (e.g., users, products, orders)
-- How do they relate? (e.g., a user has many orders, an order has many products)
-- Any important fields to call out? (e.g., "products must have a SKU and price")
-- Any data that needs to be soft-deleted, versioned, or audited?
-
-**Group 6 — Integrations & Extras:**
-
-- Any third-party services? (payments, email, file storage, maps, etc.)
-- Real-time features needed? (websockets, live updates, notifications)
-- Any background jobs or scheduled tasks?
-- Any other requirements or constraints?
-
-**Group 7 — Final Confirmation:**
-
-- Summarize EVERYTHING you understood from all groups back to the user.
-- Ask: "Is there anything I missed, got wrong, or that you want to add?"
-- Keep asking until the user confirms the summary is complete and correct.
-
-## Go Backend Initialization — ask AFTER interview, BEFORE board creation
-
-**Immediately after the user confirms the Group 7 summary, ask:**
-
-> "Do you want me to initialize the Go backend from the `go-template` repo (`https://github.com/voidmaindev/go-template`)? This gives you user, auth, email, RBAC, and audit domains out of the box with Fiber, GORM, JWT, Casbin, OpenTelemetry, and Docker already configured. If not, we'll set up the backend from scratch."
-
-### If the user says YES — follow these steps IN ORDER:
-
-**CRITICAL: NEVER modify the template repo. ALL changes happen in the NEW repo only.**
-
-1. **Create the new repo from the template:**
-
-   ```bash
-   gh repo create <owner>/<new-repo-name> --template voidmaindev/go-template --public --clone
-   cd <new-repo-name>
-   ```
-
-   Use the project name from the kickoff interview. Ask the user for the GitHub owner if not obvious.
-
-2. **Clean up `internal/app/main.go`** — remove all example domain imports and registrations from the main app's domain slice (`example_city`, `example_country`, `example_item`, `example_document`). Keep only: `user`, `auth`, `email`, `rbac`, `audit`. Do NOT delete the example domain directories — just unregister them.
-
-3. **Clean up `internal/app/app.go`** — remove the `"example_geography"` entry from the `All()` map. Keep only `"main"`. Do NOT delete the `example_geography.go` file — just remove the map entry.
-
-4. **Clean up `api/openapi.yaml`** — remove all paths and schemas for example domains (items, countries, cities, documents, document_items). Keep auth, user, and core paths intact.
-
-5. **Update module name** — change `github.com/voidmaindev/go-template` to the new project's module path in `go.mod` and all `.go` files:
-
-   ```bash
-   find . -name "*.go" -exec sed -i 's|github.com/voidmaindev/go-template|github.com/<owner>/<new-repo-name>|g' {} +
-   sed -i 's|github.com/voidmaindev/go-template|github.com/<owner>/<new-repo-name>|g' go.mod
-   ```
-
-6. **Verify the build:**
-
-   ```bash
-   go build ./...
-   ```
-
-   Fix any compilation errors before proceeding.
-
-7. **Commit and push the cleanup:**
-   ```bash
-   git add -A
-   git commit -m "Initialize from go-template: unregister example domains from main app"
-   git push
-   ```
-
-### If the user says NO:
-
-Continue to the next section (Kanban board creation). The backend will be set up from scratch during Phase 1.
-
-**After this step (whether YES or NO), proceed to create the Kanban board below.**
-
-## CRITICAL: Plan mode file ≠ GitHub Kanban board
-
-- The Claude plan mode file (`.claude/plans/...`) is NOT the same as the GitHub Projects Kanban board.
-- Approving the plan mode file does NOT count as approving the project plan.
-- Both must exist independently. The plan mode file is temporary; the GitHub Kanban board is permanent and persistent across sessions.
-
-## After the interview — STOP AND CREATE THE KANBAN BOARD BEFORE ANY CODE:
-
-**You MUST complete ALL of the following steps before writing a single line of code. This is non-negotiable.**
-
-1. Create a GitHub Project (Kanban board) named the same as the repo.
-2. **Link the project to the repo** so it appears in the repo's Projects tab.
-3. **Add the Backlog column.** GitHub Projects defaults to only Todo/In Progress/Done. You MUST add a **Backlog** column to the Status field so the board has all 4 columns: **Backlog**, **Todo**, **In Progress**, **Done**. Verify all 4 columns exist before proceeding.
-4. Create GitHub issues for each phase as a top-level issue (e.g., "Phase 1: Project Setup"). Use labels to mark phases.
-5. For every task within a phase, create a sub-issue linked to the phase issue. For every subtask, create a sub-issue linked to the task issue. Aim for 3 levels of depth.
-6. Add all issues to the Kanban board in the **Backlog** column. Move the first phase's issues to **Todo**.
-7. Present the board structure to the user (list all phases, tasks, and subtasks). Ask them to confirm or request changes.
-8. **HARD GATE: Do NOT write any code until the user explicitly approves the board.** If the board is empty or missing issues, stop and fix it first.
-
-## HARD SEQUENCING RULES:
-
-- After exiting plan mode, your FIRST action must be the Go backend template initialization (if the user opted in), followed by creating the GitHub Project board and populating it with issues. NO other files may be created before these steps are complete.
-- After creating the board, STOP and present the structure to the user. Wait for explicit approval before creating ANY other file (`.gitignore`, `Dockerfile`, `go.mod`, `package.json`, etc. — all count as project files).
-- If you catch yourself writing non-board files before board approval, STOP immediately and go back to setting up the board first.
+- Commit locally whenever a phase of work is complete. Never push unless asked in that turn.
 
 # Kanban Board — MANDATORY EVERY SESSION
 
-**NO CODE until the board is reviewed and up to date. This applies EVERY session, not just kickoff.**
+GitHub Project: https://github.com/users/Sabissimo/projects/9 (linked to this repo).
 
-## Session start protocol — do this BEFORE ANY CODE, EVERY TIME:
+## Session start protocol — BEFORE ANY CODE, EVERY TIME:
 
-1. **Read the board state** using `gh project item-list` and `gh issue list` to see all issues and their status.
-   - If the GitHub Project board doesn't exist, STOP and run the Kickoff Interview above. No exceptions.
-2. **Review** what's done (issues in **Done** column) and what's next (issues in **Todo** column).
-3. **Update the board** if needed:
-   - Create new issues for tasks discovered since last session and add them to the board.
-   - Break down upcoming tasks into sub-issues if they're too big.
-   - Close or remove issues that are no longer relevant.
-   - If starting a new phase, flesh out its details (field names, validation rules, exact behavior) in the phase issue body before coding it.
-4. **Move cards** — shift the next batch of work from **Backlog** to **Todo**.
-5. **Tell the user** what's done, what's next, and what you updated on the board.
-6. **HARD GATE: Only after steps 1-5 are complete, begin coding.**
+1. Read the board state (`gh project item-list 9 --owner Sabissimo`, `gh issue list`).
+2. Review what's Done and what's in Todo.
+3. Update the board: new issues for newly discovered work, break down upcoming tasks,
+   close stale issues.
+4. Move the next batch from Backlog to Todo.
+5. Tell the user what's done, what's next, and what you updated.
+6. Only then start coding.
 
 ## While coding:
 
-- Move issues to **In Progress** when you start working on them.
-- Move issues to **Done** and close them immediately after completing them.
-- If a task turns out to be bigger than expected, create sub-issues and add them to the board right away.
-- If you **or the user** identify new work (new features, bug reports, follow-ups, refactors), create issues on the board BEFORE writing any code for it. See the "New Work Request Protocol" section below.
-- Never leave the board stale — it must reflect reality at all times.
-- Never commit code without first verifying that the board reflects the current state.
-
-## Sub-agent checkpoint rule:
-
-- **After EVERY sub-agent completes work, you MUST immediately update the Kanban board** BEFORE doing anything else (committing, starting the next phase, launching another sub-agent, etc.).
-- Sub-agents cannot update the board. It is YOUR responsibility to move cards and close issues after a sub-agent returns.
-- If you batch multiple phases into one sub-agent call, update ALL completed issues when it returns — not later.
-- When updating after a sub-agent, don't just close issues — also **create new sub-issues** (up to 3 levels deep) for any work the sub-agent completed that wasn't already broken down, and create sub-issues for the next upcoming tasks.
-
-# New Work Request Protocol — MANDATORY FOR EVERY REQUEST
-
-**This is the rule the kickoff section does NOT cover. Read it carefully.**
-
-Whenever the user asks for new work — at ANY point in the project, not just kickoff, not just session start — you MUST update the Kanban board BEFORE writing any code. This protocol applies EVERY time the user requests new work. Do NOT assume the session-start protocol covers mid-session requests. Do NOT assume the kickoff board makes this protocol optional.
-
-## Trigger — BROAD on purpose:
-
-This protocol fires on **any** user request for new work. That includes:
-
-- Adding features
-- Changing or extending existing features
-- Bug fixes
-- Refactors
-- Tweaks and small improvements
-- Follow-ups from previous work
-
-Trigger phrases include (non-exhaustive): "add", "implement", "build", "create", "change", "fix", "refactor", "extend", "now do", "let's do", "can you", "make it", "update", "improve".
-
-**If in doubt whether a request counts as new work — it does. Run the protocol.**
-
-## HARD GATE — NO CODE until issues exist on the board:
-
-**NO CODE may be written until issues for the new work exist on the Kanban board.**
-
-Unlike kickoff, you do NOT need to wait for user approval of the hierarchy. The flow is:
-
-1. Create a top-level issue for the work. Use a label to mark it (`feature`, `bug`, `refactor`, etc.).
-2. Break it into sub-issues:
-   - **Large features:** 3 levels of depth, matching the kickoff hierarchy rules in the "Issue structure — ALWAYS use sub-issues" section below.
-   - **Bug fixes and small tweaks:** 1–2 levels is acceptable.
-3. Add the issues to the board. Put the issue you're starting on in **In Progress**; put queued ones in **Todo**.
-4. Tell the user in ONE line what you added to the board (e.g., "Added issue #42 'Dark mode toggle' with 3 sub-issues to the board, starting #43 now.").
-5. Proceed to code.
-
-If you catch yourself opening an editor or writing code before the issues exist, STOP and create the issues first.
-
-## Issue structure — ALWAYS use sub-issues:
-
-**Every task MUST have sub-issues. No flat boards. Aim for 3 levels of depth.**
-
-- When creating the initial board, break every task into sub-issues immediately.
-- When starting a task, break its sub-issues into sub-sub-issues if they're non-trivial.
-- When finishing a task or sub-issue, close it AND create/update sub-issues for the next one.
-
-Example structure:
-
-```
-Phase 1: Project Setup (issue #1, label: phase)
-├── Initialize Go backend (issue #2, sub-issue of #1)
-│   ├── Create go.mod with module name (issue #5, sub-issue of #2)
-│   ├── Set up /cmd, /internal, /pkg folder structure (issue #6, sub-issue of #2)
-│   └── Create main.go entry point (issue #7, sub-issue of #2)
-├── Docker Compose for Postgres + Go (issue #3, sub-issue of #1)
-│   ├── Postgres container (issue #8, sub-issue of #3)
-│   │   ├── Configure volume for data persistence (issue #11, sub-issue of #8)
-│   │   └── Set environment variables (issue #12, sub-issue of #8)
-│   └── Go container with hot reload (issue #9, sub-issue of #3)
-│       ├── Write Dockerfile with multi-stage build (issue #13, sub-issue of #9)
-│       ├── Add Air config for hot reload (issue #14, sub-issue of #9)
-│       └── Wire up to Docker Compose network (issue #15, sub-issue of #9)
-└── Database migrations (issue #4, sub-issue of #1)
-    ├── Create initial migration for users table (issue #10, sub-issue of #4)
-    └── Add GORM AutoMigrate setup (issue #16, sub-issue of #4)
-```
-
-# Documentation — MANDATORY
-
-1. **Check if `docs/` folder exists** in the project root.
-   - If it exists: read relevant docs before making changes.
-   - If it does NOT exist: create `docs/` and populate it alongside your first feature work.
-
-2. **Required docs:**
-   - `docs/architecture.md` — how the app works inside and out. Update this whenever you add or change a system component.
-   - Additional docs per feature or domain as needed (e.g., `docs/auth.md`, `docs/api.md`).
-
-3. **Keep docs in sync** — when you add or change a feature, update the relevant doc in the same session. Don't defer it.
-
-# Testing
-
-- Write unit tests for all Go business logic (table-driven).
-- Write integration tests for API endpoints using Go's httptest.
-- Frontend: use Vitest + React Testing Library for component tests.
-- After medium+ features, test in browser using Playwright — logins and main user paths.
-- Tests live next to the code they test, not in a separate folder.
-
-# Docker
-
-- Always rebuild containers with `--no-cache` when changing anything container-based.
-
-# Tools
-
-- For any frontend work, always use the `frontend-design` skill.
-- Always use Context7 MCP whenever needed.
-- Always use Playwright MCP for browser testing.
+- Move issues to In Progress when starting, Done (and close them) immediately when finished.
+- New work requested by the user mid-session → create issues on the board BEFORE coding
+  (1–2 levels for small fixes, 3 levels for features).
+- After every sub-agent completes, update the board before doing anything else.
+- Never leave the board stale.

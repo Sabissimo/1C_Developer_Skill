@@ -1,0 +1,10 @@
+# Per-project 1C files created by the skill in target projects (never in this repo,
+# but kept here so copies of this repo used as a project template stay clean)
+1c-project.json
+.1c-state.json
+.1c-temp/
+.1c-work/
+
+# OS noise
+Thumbs.db
+Desktop.ini
