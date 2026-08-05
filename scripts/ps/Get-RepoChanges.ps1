@@ -1,4 +1,4 @@
-# Get-RepoChanges.ps1 — detect repository versions newer than the last synced one.
+﻿# Get-RepoChanges.ps1 — detect repository versions newer than the last synced one.
 # Contract: references/script-contract.md #get-repo-changes  (never modifies state)
 param(
     [string]$ProjectDir,

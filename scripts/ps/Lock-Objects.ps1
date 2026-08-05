@@ -1,4 +1,4 @@
-# Lock-Objects.ps1 — map changed files to metadata objects and lock them in the repository.
+﻿# Lock-Objects.ps1 — map changed files to metadata objects and lock them in the repository.
 # Contract: references/script-contract.md #lock-objects  (exit 3 on lock conflict)
 param(
     [string]$ProjectDir,

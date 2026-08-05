@@ -1,4 +1,4 @@
-# Common.ps1 — shared core for all 1c-dev skill scripts (PowerShell variant).
+﻿# Common.ps1 — shared core for all 1c-dev skill scripts (PowerShell variant).
 # Dot-source from every script:  . "$PSScriptRoot\Common.ps1"
 # Contract: references/script-contract.md — keep in sync with scripts/sh/common.sh.
 

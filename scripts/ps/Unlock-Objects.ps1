@@ -1,4 +1,4 @@
-# Unlock-Objects.ps1 — abort path: release repository locks without committing.
+﻿# Unlock-Objects.ps1 — abort path: release repository locks without committing.
 # Contract: references/script-contract.md #unlock-objects
 param(
     [string]$ProjectDir,

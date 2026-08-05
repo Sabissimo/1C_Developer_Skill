@@ -1,4 +1,4 @@
-# Load-FromXml.ps1 — partial load of edited XML files into the main configuration + DB update.
+﻿# Load-FromXml.ps1 — partial load of edited XML files into the main configuration + DB update.
 # Contract: references/script-contract.md #load-from-xml
 param(
     [string]$ProjectDir,

@@ -1,4 +1,4 @@
-# Mapping.ps1 — XML file path -> metadata object name mapping + objects.xml generation.
+﻿# Mapping.ps1 — XML file path -> metadata object name mapping + objects.xml generation.
 # Dot-sourced by Lock-Objects.ps1 (after Common.ps1).
 # Rules: references/file-to-object-map.md; contract: references/script-contract.md.
 
@@ -62,7 +62,7 @@ function ConvertTo-MetadataObject([string]$RelativePath) {
     # Maps one path (relative to xmlDir, either separator) to a lockable object name.
     # Returns 'Configuration' for the root, $null for files that need no lock (ConfigDumpInfo.xml).
     $normalized = $RelativePath -replace '\\', '/' -replace '^\./', ''
-    $segments = $normalized -split '/' | Where-Object { $_ -ne '' }
+    $segments = @($normalized -split '/' | Where-Object { $_ -ne '' })
     if ($segments.Count -eq 0) { return $null }
 
     $first = $segments[0]

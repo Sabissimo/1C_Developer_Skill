@@ -1,4 +1,4 @@
-# Update-FromRepo.ps1 — pull latest repository version into the infobase and re-sync XML.
+﻿# Update-FromRepo.ps1 — pull latest repository version into the infobase and re-sync XML.
 # Contract: references/script-contract.md #update-from-repo
 param(
     [string]$ProjectDir,

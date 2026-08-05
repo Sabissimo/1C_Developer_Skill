@@ -1,4 +1,4 @@
-# Commit-ToRepo.ps1 — commit locked objects to the repository (releases the locks).
+﻿# Commit-ToRepo.ps1 — commit locked objects to the repository (releases the locks).
 # Contract: references/script-contract.md #commit-to-repo
 param(
     [string]$ProjectDir,

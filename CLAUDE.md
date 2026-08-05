@@ -28,6 +28,9 @@ the 1C Designer in batch mode (`1cv8.exe DESIGNER /...`).
 - Designer calls: always `/DisableStartupDialogs /DisableStartupMessages /Out <log>`;
   check the exit code AND scan the log — the designer sometimes exits 0 on failure.
 - All text output files the designer consumes (objects.xml, list files) are UTF-8 with BOM.
+- All `.ps1` files must be saved as UTF-8 **with BOM** — they contain Cyrillic patterns
+  and Windows PowerShell 5.1 misreads BOM-less UTF-8 as ANSI. `.sh` files must stay
+  BOM-less LF.
 - Logs/reports from the designer may be UTF-8, UTF-16 or CP1251 — always read through the
   encoding-detection helpers in `Common.ps1` / `common.sh`.
 

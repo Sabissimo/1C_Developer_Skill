@@ -1,4 +1,4 @@
-# Sync-Xml.ps1 — dump the main configuration to the XML dir without touching unchanged files.
+﻿# Sync-Xml.ps1 — dump the main configuration to the XML dir without touching unchanged files.
 # Contract: references/script-contract.md #sync-xml
 param(
     [string]$ProjectDir,

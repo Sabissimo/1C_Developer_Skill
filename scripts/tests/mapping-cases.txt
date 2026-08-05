@@ -1,0 +1,17 @@
+Catalogs/Товары.xml|Catalog.Товары
+Catalogs/Товары/Ext/ObjectModule.bsl|Catalog.Товары
+Catalogs/Товары/Forms/ФормаЭлемента/Ext/Form/Module.bsl|Catalog.Товары.Form.ФормаЭлемента
+Catalogs/Товары/Forms/ФормаСписка.xml|Catalog.Товары.Form.ФормаСписка
+Documents/Заказ/Templates/Печать.xml|Document.Заказ.Template.Печать
+Documents/Заказ/Ext/Predefined.xml|Document.Заказ
+CommonModules/ОбщегоНазначения/Ext/Module.bsl|CommonModule.ОбщегоНазначения
+CommonForms/Настройки/Ext/Form/Module.bsl|CommonForm.Настройки
+CommonTemplates/МакетПисьма.xml|CommonTemplate.МакетПисьма
+Configuration.xml|Configuration
+ConfigDumpInfo.xml|-
+Enums/СтатусыЗаказов.xml|Enum.СтатусыЗаказов
+InformationRegisters/КурсыВалют/Forms/ФормаНабораЗаписей.xml|InformationRegister.КурсыВалют.Form.ФормаНабораЗаписей
+Roles/ПолныеПрава.xml|Role.ПолныеПрава
+DataProcessors\Загрузка\Ext\ObjectModule.bsl|DataProcessor.Загрузка
+./Constants/ОсновнаяВалюта.xml|Constant.ОсновнаяВалюта
+ChartsOfAccounts/Хозрасчетный/Forms/ФормаВыбора.xml|ChartOfAccounts.Хозрасчетный.Form.ФормаВыбора

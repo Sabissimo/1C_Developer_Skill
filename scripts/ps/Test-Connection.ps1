@@ -1,4 +1,4 @@
-# Test-Connection.ps1 — validate platform, infobase and repository access in one call.
+﻿# Test-Connection.ps1 — validate platform, infobase and repository access in one call.
 # Contract: references/script-contract.md #test-connection
 param(
     [string]$ProjectDir
