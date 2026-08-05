@@ -7,8 +7,10 @@ via `-listFile`, commit with comment, unlock, version detection — passed end-t
 In particular: objects.xml version 1.0 is accepted by Lock/Commit/Unlock, and
 `/ConfigurationRepositoryReport` writes **MXL (MOXCEL) data even into a `.txt` file** —
 the report parsers handle both MXL cell pairs and plain text. Re-locking an object the
-same repository user already holds succeeds silently (idempotent); exit 3 fires only
-when *another* user holds it.
+same repository user already holds succeeds silently (idempotent). The conflict path is
+verified live too: locking an object held by **another** repository user exits 3 in both
+variants with the designer's conflict line ("Объект захвачен для редактирования другим
+пользователем: …") in the `conflict` field, and the locked-objects list stays untouched.
 
 ## First live run on a different platform build — verify once
 
