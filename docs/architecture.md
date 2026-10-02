@@ -91,16 +91,18 @@ one rewrite: a form module (`…/Ext/Form/Module.bsl`) is listed as its form
 and loads it together with the form.
 
 **Post-load check.** What runs between load and commit is decided in two steps. The
-project's `checkMode` in `1c-project.json` says what is *allowed*: `full` (integrity and
-modules), `modules`, `integrity` or `none`. The files edited in the task say what is
+project's `checkMode` in `1c-project.json` says what is *allowed*: `auto` (integrity and
+modules), `integrity`, `modules` or `none`. The files edited in the task say what is
 *needed*: an edited `.xml` is a metadata change and calls for the logical-integrity
 check, an edited module calls for the syntax check. `check-config` runs the
 intersection as a single designer call — `/CheckConfig -ConfigLogIntegrity`,
 `/CheckModules -Server -ThinClient`, or `/CheckConfig -ConfigLogIntegrity -Server
 -ThinClient` when both are needed — and no call at all when nothing is. A task that only
 touched a module therefore never pays for an integrity check, and the other way round.
+The fifth mode, `always`, skips the second step: both checks, in the combined call, on
+every task.
 
-The setup interview offers all four modes and recommends `full`; a config without the
+The setup interview offers all the modes and recommends `auto`; a config without the
 key means "not chosen yet" — `check-config` skips and says so, and Claude asks once and
 writes the answer back. The script, not Claude, reads the setting and the file list, so
 a project that turned a check off is never checked by accident.

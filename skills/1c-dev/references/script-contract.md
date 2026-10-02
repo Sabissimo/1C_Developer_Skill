@@ -39,19 +39,21 @@ same commit.
   "repository": { "path": "tcp://srv1c/repo", "user": "dev", "password": "" },
   "xmlDir": "src",                           // relative to project dir, or absolute
   "tempXmlDir": ".1c-temp",                  // used only by the full-dump fallback
-  "checkMode": "full"                        // optional: "full" | "modules" | "integrity" | "none"
+  "checkMode": "auto"                        // optional: "always" | "auto" | "integrity" | "modules" | "none"
 }
 ```
 
 `checkMode` says which checks `check-config` **may** run between load and commit; the
-files edited in the task decide which of those it **does** run:
+files edited in the task decide which of those it **does** run — except in `always`,
+which runs both on every task:
 
-| value | a `.xml` was edited | a module was edited |
-|---|---|---|
-| `full` | integrity check | module check |
-| `modules` | — | module check |
-| `integrity` | integrity check | — |
-| `none` | — | — |
+| value | a `.xml` was edited | a module was edited | neither |
+|---|---|---|---|
+| `always` | integrity + modules | integrity + modules | integrity + modules |
+| `auto` | integrity check | module check | — |
+| `integrity` | integrity check | — | — |
+| `modules` | — | module check | — |
+| `none` | — | — | — |
 
 The key is optional. Absent means *not chosen yet*: `check-config` skips and reports
 `"mode":"unset"`. Any other value is an invalid config — **every** script exits 2 on it.
@@ -118,11 +120,12 @@ Partial load of edited files into the main configuration + DB update.
 Check the main configuration after a load, as the project's `checkMode` says.
 - Args: `--files` / `--list-file` (the files edited in the task, paths relative to
   `xmlDir`) — required whenever a check is configured, since they decide what is checked;
-  `--mode full|modules|integrity|none` / `-Mode` — overrides `checkMode` for this run.
+  `--mode always|auto|integrity|modules|none` / `-Mode` — overrides `checkMode` for this run.
 - **What runs.** *Integrity* is needed when the mode allows it and at least one file ends
   in `.xml`. *Modules* is needed when the mode allows it and at least one file maps to a
   module (references/file-to-object-map.md — a form's `Ext/Form.xml` counts, so it calls
-  for both). Always a single designer run, with no repository connection:
+  for both). `always` needs both whatever the files are; the files still decide which
+  module findings block. Always a single designer run, with no repository connection:
   | needed | designer call |
   |---|---|
   | integrity + modules | `/CheckConfig -ConfigLogIntegrity -Server -ThinClient` |

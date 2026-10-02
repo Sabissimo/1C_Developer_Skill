@@ -15,7 +15,7 @@ CHECK_OPERATION="Configuration check"
 nothing_to_check_reason() {
     # nothing_to_check_reason <mode> -> why nothing was checked although a check is configured
     case "$1" in
-        "$CHECK_MODE_FULL") echo "no .xml file and no module among the edited files" ;;
+        "$CHECK_MODE_AUTO") echo "no .xml file and no module among the edited files" ;;
         "$CHECK_MODE_MODULES") echo "no module among the edited files" ;;
         "$CHECK_MODE_INTEGRITY") echo "no .xml file among the edited files" ;;
     esac
@@ -106,11 +106,13 @@ fi
 [ ${#paths[@]} -gt 0 ] || die "$EXIT_USAGE" "Nothing to check: pass the edited files via --files or --list-file"
 
 # The mode allows checks; the edited files decide which of the allowed ones are needed:
-# metadata (.xml) -> integrity, modules -> syntax.
+# metadata (.xml) -> integrity, modules -> syntax. "always" needs both whatever was edited.
+check_always="no"
 integrity_allowed="no"
 modules_allowed="no"
 case "$check_mode" in
-    "$CHECK_MODE_FULL") integrity_allowed="yes"; modules_allowed="yes" ;;
+    "$CHECK_MODE_ALWAYS") check_always="yes"; integrity_allowed="yes"; modules_allowed="yes" ;;
+    "$CHECK_MODE_AUTO") integrity_allowed="yes"; modules_allowed="yes" ;;
     "$CHECK_MODE_INTEGRITY") integrity_allowed="yes" ;;
     "$CHECK_MODE_MODULES") modules_allowed="yes" ;;
 esac
@@ -121,12 +123,16 @@ if [ "$modules_allowed" = "yes" ]; then
     module_ids="$MODULE_IDS"
 fi
 check_integrity="no"
-if [ "$integrity_allowed" = "yes" ] && is_metadata_edited "${paths[@]}"; then
-    check_integrity="yes"
+if [ "$integrity_allowed" = "yes" ]; then
+    if [ "$check_always" = "yes" ] || is_metadata_edited "${paths[@]}"; then
+        check_integrity="yes"
+    fi
 fi
 check_modules="no"
-if [ -n "$module_ids" ]; then
-    check_modules="yes"
+if [ "$modules_allowed" = "yes" ]; then
+    if [ "$check_always" = "yes" ] || [ -n "$module_ids" ]; then
+        check_modules="yes"
+    fi
 fi
 if [ "$check_integrity" = "no" ] && [ "$check_modules" = "no" ]; then
     skipped_result "$check_mode" "$(nothing_to_check_reason "$check_mode")"

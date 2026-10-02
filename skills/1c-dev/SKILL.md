@@ -41,12 +41,14 @@ When the user says a project is a 1C project and `1c-project.json` doesn't exist
    root, move it into `src/` before setting up, or the first full sync will delete
    `README.md` and `1c-project.json` itself.
    Also ask which **check** runs after every load, before the commit (`checkMode`) —
-   offer all four and recommend keeping one on:
-   - `full` (**recommended**) — checks what the task touched: logical integrity when an
-     `.xml` was edited, module syntax (server + thin client) when a module was edited,
-     both in one designer run when both were.
-   - `modules` — only the module syntax check; metadata edits are not checked.
+   offer these and recommend keeping one on:
+   - `always` — logical integrity + module syntax (server + thin client) on every task,
+     whatever was edited.
+   - `auto` (**recommended**) — checks what the task touched: integrity when an `.xml`
+     was edited, module syntax when a module was edited, both in one designer run when
+     both were.
    - `integrity` — only the integrity check on `.xml` edits; modules are never checked.
+   - `modules` — only the module syntax check on module edits; metadata is never checked.
    - `none` — no check.
 
    In every mode only module errors in the modules edited in the task block the commit;
@@ -114,8 +116,9 @@ For every task that changes configuration files:
       script makes that substitution itself, so pass the paths you edited.
    b. `check-config --files "<same file list>"` — only after the load returned `ok`.
       The project's `checkMode` says which checks are allowed, the file list says which
-      are needed (`.xml` → integrity, module → syntax); always pass the full list of
-      edited files and let the script decide. Read the result:
+      are needed (`.xml` → integrity, module → syntax; `always` runs both regardless);
+      pass the complete list of edited files in every mode and let the script decide.
+      Read the result:
       - **Exit 5** — the check found errors. `errors` holds module errors as
         `{module(line,col)}: message` and integrity errors as `Объект: message`.
         Fix them, then repeat a–b. **Do not commit.**
@@ -124,7 +127,7 @@ For every task that changes configuration files:
         breaks its *callers*, and that shows up here. If your change caused one, fix
         it; if it was there before, mention it to the user and go on.
       - `"mode":"unset"` — the project has not chosen yet. Ask the user once, with the
-        four options from Workflow 1 and `full` recommended, write `checkMode` into
+        options from Workflow 1 and `auto` recommended, write `checkMode` into
         `1c-project.json`, and run the check again.
       - `skipped:true` otherwise (`none`, or nothing among the files that the mode
         checks) — go on.
@@ -139,7 +142,7 @@ commits the whole recorded set at once.
 The check setting belongs to the project, not to the task: do not skip a configured check
 to save time, and do not run one the project turned off. Change it only when the user
 asks — edit `checkMode` in `1c-project.json`. For a one-off run in another mode (the user
-asks for "a full check now") use `check-config --mode full --files "<files>"`; it leaves
+asks for "a full check now") use `check-config --mode always --files "<files>"`; it leaves
 the setting alone. The module check cannot be limited to some modules — the designer
 always compiles the whole configuration, and the script narrows the report, not the work.
 

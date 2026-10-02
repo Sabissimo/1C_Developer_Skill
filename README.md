@@ -14,9 +14,9 @@ interview once, and then just give it tasks. Claude will, on its own:
 - edit the XML/BSL sources,
 - load exactly the changed files back (`LoadConfigFromFiles -listFile`) and update the DB
   configuration,
-- **check the result before committing** — a per-project choice (`checkMode`), applied
-  to what the task actually touched: logical integrity when metadata `.xml` was edited,
-  module syntax when a module was; either one alone, both, or no check at all,
+- **check the result before committing** — a per-project choice (`checkMode`): logical
+  integrity plus module syntax on every task, only what the task actually touched
+  (integrity for edited `.xml`, syntax for edited modules), either one alone, or no check,
 - **commit to the repository** with a task comment.
 
 ## Requirements
@@ -77,9 +77,10 @@ The post-load check is set per project with `"checkMode"` in `1c-project.json`:
 
 | `checkMode` | `.xml` edited | module edited |
 |---|---|---|
-| `"full"` (recommended) | integrity check | module check |
-| `"modules"` | — | module check |
+| `"always"` | integrity + module check | integrity + module check |
+| `"auto"` (recommended) | integrity check | module check |
 | `"integrity"` | integrity check | — |
+| `"modules"` | — | module check |
 | `"none"` | — | — |
 
 Claude asks during setup (and once, on the first task, in a project set up before the

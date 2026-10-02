@@ -6,7 +6,7 @@ param(
     [string]$ProjectDir,
     [string]$Files,      # comma-separated paths relative to xmlDir — the files edited in the task
     [string]$ListFile,   # file with one path per line, relative to xmlDir
-    [string]$Mode        # full | modules | integrity | none — overrides checkMode for this run
+    [string]$Mode        # always | auto | modules | integrity | none — overrides checkMode for this run
 )
 . "$PSScriptRoot\Common.ps1"
 . "$PSScriptRoot\Mapping.ps1"
@@ -17,7 +17,7 @@ $CHECK_OPERATION = 'Configuration check'
 
 # Why nothing was checked although a check is configured, by mode.
 $NOTHING_TO_CHECK_REASON = @{
-    $CHECK_MODE_FULL      = 'no .xml file and no module among the edited files'
+    $CHECK_MODE_AUTO      = 'no .xml file and no module among the edited files'
     $CHECK_MODE_MODULES   = 'no module among the edited files'
     $CHECK_MODE_INTEGRITY = 'no .xml file among the edited files'
 }
@@ -85,9 +85,10 @@ if ($paths.Count -eq 0) {
 }
 
 # The mode allows checks; the edited files decide which of the allowed ones are needed:
-# metadata (.xml) -> integrity, modules -> syntax.
-$integrityAllowed = ($checkMode -eq $CHECK_MODE_FULL) -or ($checkMode -eq $CHECK_MODE_INTEGRITY)
-$modulesAllowed = ($checkMode -eq $CHECK_MODE_FULL) -or ($checkMode -eq $CHECK_MODE_MODULES)
+# metadata (.xml) -> integrity, modules -> syntax. "always" needs both whatever was edited.
+$checkAlways = $checkMode -eq $CHECK_MODE_ALWAYS
+$integrityAllowed = $checkAlways -or ($checkMode -eq $CHECK_MODE_AUTO) -or ($checkMode -eq $CHECK_MODE_INTEGRITY)
+$modulesAllowed = $checkAlways -or ($checkMode -eq $CHECK_MODE_AUTO) -or ($checkMode -eq $CHECK_MODE_MODULES)
 
 $moduleIds = @()
 if ($modulesAllowed) {
@@ -97,8 +98,8 @@ if ($modulesAllowed) {
         Exit-WithError $EXIT_USAGE $_.Exception.Message
     }
 }
-$checkIntegrity = $integrityAllowed -and (Test-MetadataEdited $paths)
-$checkModules = $moduleIds.Count -gt 0
+$checkIntegrity = $integrityAllowed -and ($checkAlways -or (Test-MetadataEdited $paths))
+$checkModules = $modulesAllowed -and ($checkAlways -or ($moduleIds.Count -gt 0))
 if (-not $checkIntegrity -and -not $checkModules) {
     Write-SkippedResult $checkMode $NOTHING_TO_CHECK_REASON[$checkMode]
 }

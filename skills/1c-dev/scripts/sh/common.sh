@@ -19,12 +19,13 @@ LOCKED_LIST_NAME="locked-objects.json"
 
 # checkMode values in 1c-project.json. UNSET is not a legal value there: it is what the
 # scripts report when the key is absent, i.e. the project has not chosen yet.
-CHECK_MODE_FULL="full"             # integrity check for edited .xml + module check for edited modules
+CHECK_MODE_ALWAYS="always"         # integrity + module check on every task, whatever was edited
+CHECK_MODE_AUTO="auto"             # integrity check for edited .xml + module check for edited modules
 CHECK_MODE_MODULES="modules"       # module check for edited modules, never integrity
 CHECK_MODE_INTEGRITY="integrity"   # integrity check for edited .xml, never modules
 CHECK_MODE_NONE="none"             # no check
 CHECK_MODE_UNSET="unset"
-CHECK_MODES="$CHECK_MODE_FULL, $CHECK_MODE_MODULES, $CHECK_MODE_INTEGRITY, $CHECK_MODE_NONE"
+CHECK_MODES="$CHECK_MODE_ALWAYS, $CHECK_MODE_AUTO, $CHECK_MODE_MODULES, $CHECK_MODE_INTEGRITY, $CHECK_MODE_NONE"
 
 # Dump paths (relative to xmlDir, '/'-separated) of a form's module and of the form itself.
 FORM_MODULE_SUFFIX="/Ext/Form/Module.bsl"
@@ -100,7 +101,7 @@ if obj is not None:
 is_check_mode() {
     # is_check_mode <value> -> 0 when the value is a legal checkMode
     case "$1" in
-        "$CHECK_MODE_FULL"|"$CHECK_MODE_MODULES"|"$CHECK_MODE_INTEGRITY"|"$CHECK_MODE_NONE") return 0 ;;
+        "$CHECK_MODE_ALWAYS"|"$CHECK_MODE_AUTO"|"$CHECK_MODE_MODULES"|"$CHECK_MODE_INTEGRITY"|"$CHECK_MODE_NONE") return 0 ;;
         *) return 1 ;;
     esac
 }
