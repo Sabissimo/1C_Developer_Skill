@@ -140,17 +140,35 @@ if ($cleanFindings.Count -ne 0) {
     $failures++
 }
 
-# ---- check log: only findings in the edited modules count; the rest is reported apart ----
+# ---- check log: findings split into edited modules, other modules, and no module at all ----
 $caseCount++
 $editedIds = @(ConvertTo-ModuleIdSet @(
     'Documents/Инвентаризация/Ext/ObjectModule.bsl',
     'Documents/Инвентаризация/Forms/ФормаДокумента/Ext/Form.xml',
     'Documents/Инвентаризация.xml'
 ))
-$split = Split-CheckFindings ($findings + 'Нарушена ссылочная целостность') $editedIds
-if ($split.Edited.Count -ne 3 -or $split.Other.Count -ne 2) {
-    Write-Host "FAIL check split: $($split.Edited.Count) edited / $($split.Other.Count) other, expected 3 / 2"
+$integrityFinding = 'РегистрСведений.ЦеныНоменклатуры: Ни один из документов не является регистратором для регистра'
+$split = Split-CheckFindings ($findings + $integrityFinding) $editedIds
+$splitCounts = "$($split.Edited.Count)/$($split.Elsewhere.Count)/$($split.Unattributed.Count)"
+if ($splitCounts -ne '3/1/1') {
+    Write-Host "FAIL check split: edited/elsewhere/unattributed = $splitCounts, expected 3/1/1"
     $failures++
+}
+
+# ---- full mode: an edited .xml calls for the integrity check, a module alone does not ----
+$metadataCases = @(
+    @{ Paths = @('Documents/Заказ.xml'); Expected = $true },
+    @{ Paths = @('Documents/Заказ/Ext/ObjectModule.bsl'); Expected = $false },
+    @{ Paths = @('Documents/Заказ/Ext/ObjectModule.bsl', 'Documents/Заказ/Forms/Форма/Ext/Form.xml'); Expected = $true },
+    @{ Paths = @('CommonPictures/Логотип/Ext/Picture.png'); Expected = $false }
+)
+foreach ($case in $metadataCases) {
+    $caseCount++
+    $actual = Test-MetadataEdited $case.Paths
+    if ($actual -ne $case.Expected) {
+        Write-Host "FAIL metadata edited: '$($case.Paths -join ', ')' -> $actual (expected $($case.Expected))"
+        $failures++
+    }
 }
 
 if ($failures -gt 0) {

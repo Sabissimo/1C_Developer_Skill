@@ -149,7 +149,7 @@ if [ -n "$clean_findings" ]; then
     failures=$((failures + 1))
 fi
 
-# ---- check log: only findings in the edited modules count; the rest is reported apart ----
+# ---- check log: findings split into edited modules, other modules, and no module at all ----
 case_count=$((case_count + 1))
 # The files "edited" in this scenario — the same list is spelled out in Write-CheckingParity.ps1.
 EDITED_FILES=(
@@ -159,14 +159,33 @@ EDITED_FILES=(
 )
 module_ids_for_paths "${EDITED_FILES[@]}"
 edited_ids="$MODULE_IDS"
-with_unstructured="$findings
-Нарушена ссылочная целостность"
-edited_count="$(count_lines "$(split_check_findings "$with_unstructured" "$edited_ids" edited)")"
-other_count="$(count_lines "$(split_check_findings "$with_unstructured" "$edited_ids" other)")"
-if [ "$edited_count" != "3" ] || [ "$other_count" != "2" ]; then
-    echo "FAIL check split: $edited_count edited / $other_count other, expected 3 / 2"
+with_integrity="$findings
+РегистрСведений.ЦеныНоменклатуры: Ни один из документов не является регистратором для регистра"
+split_counts=""
+for group in edited elsewhere unattributed; do
+    split_counts="$split_counts/$(count_lines "$(split_check_findings "$with_integrity" "$edited_ids" "$group")")"
+done
+if [ "$split_counts" != "/3/1/1" ]; then
+    echo "FAIL check split: /edited/elsewhere/unattributed = $split_counts, expected /3/1/1"
     failures=$((failures + 1))
 fi
+
+# ---- full mode: an edited .xml calls for the integrity check, a module alone does not ----
+expect_metadata_edited() {
+    # expect_metadata_edited <yes|no> <path>...
+    local expected="$1" actual="no"
+    shift
+    case_count=$((case_count + 1))
+    if is_metadata_edited "$@"; then actual="yes"; fi
+    if [ "$actual" != "$expected" ]; then
+        echo "FAIL metadata edited: '$*' -> $actual (expected $expected)"
+        failures=$((failures + 1))
+    fi
+}
+expect_metadata_edited yes "Documents/Заказ.xml"
+expect_metadata_edited no "Documents/Заказ/Ext/ObjectModule.bsl"
+expect_metadata_edited yes "Documents/Заказ/Ext/ObjectModule.bsl" "Documents/Заказ/Forms/Форма/Ext/Form.xml"
+expect_metadata_edited no "CommonPictures/Логотип/Ext/Picture.png"
 
 # ---- parity: PowerShell variant must produce identical objects.xml (modulo CRLF) ----
 case_count=$((case_count + 1))
@@ -193,9 +212,10 @@ if [ -n "$ps_exe" ]; then
             [ -n "$path" ] || continue
             printf 'ids %s => %s\n' "$path" "$(join_ids "$path")"
         done < "$TESTS_DIR/module-id-cases.txt"
-        printf '%s\n' "$findings" | sed '/^$/d; s/^/finding /'
-        split_check_findings "$findings" "$edited_ids" edited | sed 's/^/edited /'
-        split_check_findings "$findings" "$edited_ids" other | sed 's/^/other /'
+        printf '%s\n' "$with_integrity" | sed '/^$/d; s/^/finding /'
+        for group in edited elsewhere unattributed; do
+            split_check_findings "$with_integrity" "$edited_ids" "$group" | sed "s/^/$group /"
+        done
     } > "$sh_parity_file"
     "$ps_exe" -NoProfile -NonInteractive -File "$(to_win "$TESTS_DIR/Write-CheckingParity.ps1")" "$(to_win "$ps_parity_file")" >/dev/null
     if ! diff <(tr -d '\r' < "$sh_parity_file") <(tr -d '\r' < "$ps_parity_file") >/dev/null; then

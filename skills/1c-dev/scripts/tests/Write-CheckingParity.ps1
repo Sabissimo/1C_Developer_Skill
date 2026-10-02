@@ -29,9 +29,11 @@ foreach ($line in (Get-Content -LiteralPath "$testsDir\module-id-cases.txt" -Enc
 }
 
 $findings = @(Get-CheckFindings (Read-TextSmart "$testsDir\check-log-errors.txt"))
+$findings += 'РегистрСведений.ЦеныНоменклатуры: Ни один из документов не является регистратором для регистра'
 $split = Split-CheckFindings $findings @(ConvertTo-ModuleIdSet $EDITED_FILES)
 $lines += @($findings | ForEach-Object { "finding $_" })
 $lines += @($split.Edited | ForEach-Object { "edited $_" })
-$lines += @($split.Other | ForEach-Object { "other $_" })
+$lines += @($split.Elsewhere | ForEach-Object { "elsewhere $_" })
+$lines += @($split.Unattributed | ForEach-Object { "unattributed $_" })
 
 [IO.File]::WriteAllLines($OutputPath, [string[]]$lines, (New-Object Text.UTF8Encoding($false)))

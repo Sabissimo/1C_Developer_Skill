@@ -41,12 +41,16 @@ When the user says a project is a 1C project and `1c-project.json` doesn't exist
    root, move it into `src/` before setting up, or the first full sync will delete
    `README.md` and `1c-project.json` itself.
    Also ask which **check** runs after every load, before the commit (`checkMode`) —
-   offer all three and recommend keeping one on:
-   - `modules` (**recommended**) — syntax check; only errors in the modules edited in
-     the task block the commit, errors elsewhere are reported but do not.
-   - `config` — the designer's full configuration check; every finding blocks, including
-     ones that were there before the task.
+   offer all four and recommend keeping one on:
+   - `full` (**recommended**) — checks what the task touched: logical integrity when an
+     `.xml` was edited, module syntax (server + thin client) when a module was edited,
+     both in one designer run when both were.
+   - `modules` — only the module syntax check; metadata edits are not checked.
+   - `integrity` — only the integrity check on `.xml` edits; modules are never checked.
    - `none` — no check.
+
+   In every mode only module errors in the modules edited in the task block the commit;
+   module errors elsewhere are reported but do not.
 2. Write `1c-project.json` (schema in script-contract.md) into the project root.
 3. Ensure `.gitignore` covers: `1c-project.json`, `.1c-state.json`, `.1c-temp/`, `.1c-work/`.
 4. Run `test-connection` — stop and report if it fails.
@@ -108,18 +112,22 @@ For every task that changes configuration files:
    a. `load-from-xml --files "<same file list>"` — partial load + DB update. A form
       module (`…/Ext/Form/Module.bsl`) is loaded through its `…/Ext/Form.xml`; the
       script makes that substitution itself, so pass the paths you edited.
-   b. `check-config --files "<same file list>"` — runs the check the project chose
-      (`checkMode` in `1c-project.json`). Read the result:
-      - **Exit 5** — the check found errors (`errors`: `{module(line,col)}: message`).
+   b. `check-config --files "<same file list>"` — only after the load returned `ok`.
+      The project's `checkMode` says which checks are allowed, the file list says which
+      are needed (`.xml` → integrity, module → syntax); always pass the full list of
+      edited files and let the script decide. Read the result:
+      - **Exit 5** — the check found errors. `errors` holds module errors as
+        `{module(line,col)}: message` and integrity errors as `Объект: message`.
         Fix them, then repeat a–b. **Do not commit.**
-      - `ok:true` with `otherErrors` (mode `modules`) — errors outside the modules you
-        edited. They do not block, but read them: removing or renaming an exported
-        procedure breaks its *callers*, and that shows up here. If your change caused
-        one, fix it; if it was there before, mention it to the user and go on.
+      - `ok:true` with `otherErrors` — module errors outside the modules you edited.
+        They do not block, but read them: removing or renaming an exported procedure
+        breaks its *callers*, and that shows up here. If your change caused one, fix
+        it; if it was there before, mention it to the user and go on.
       - `"mode":"unset"` — the project has not chosen yet. Ask the user once, with the
-        three options from Workflow 1 and `modules` recommended, write `checkMode` into
+        four options from Workflow 1 and `full` recommended, write `checkMode` into
         `1c-project.json`, and run the check again.
-      - `skipped:true` otherwise (`none`, or no module among the files) — go on.
+      - `skipped:true` otherwise (`none`, or nothing among the files that the mode
+        checks) — go on.
    c. `commit-to-repo --comment "<task summary>"` — commits everything locked in this
       task and releases the locks.
 5. **Abort path**: if the user cancels the task — revert the file edits (git checkout)
@@ -131,9 +139,13 @@ commits the whole recorded set at once.
 The check setting belongs to the project, not to the task: do not skip a configured check
 to save time, and do not run one the project turned off. Change it only when the user
 asks — edit `checkMode` in `1c-project.json`. For a one-off run in another mode (the user
-asks for "a full check now") use `check-config --mode config`; it leaves the setting alone.
-Neither check can be limited to some modules — the designer always scans the whole
-configuration, and `modules` narrows the report, not the work.
+asks for "a full check now") use `check-config --mode full --files "<files>"`; it leaves
+the setting alone. The module check cannot be limited to some modules — the designer
+always compiles the whole configuration, and the script narrows the report, not the work.
+
+If `load-from-xml` fails with `При проверке метаданных обнаружены ошибки!`, that is the
+same integrity check, run by `/UpdateDBCfg`: the metadata you loaded is inconsistent. The
+specific finding is the line above it in `logFile`. Fix the `.xml` and load again.
 
 ## Hard rules
 

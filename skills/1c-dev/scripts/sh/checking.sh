@@ -7,10 +7,22 @@
 # /CheckConfig and /CheckModules exit with this code when the check ran and found errors.
 DESIGNER_EXIT_CHECK_ERRORS=101
 
+# One designer run per check-config call, chosen by what is to be checked.
+# /CheckConfig with only -ConfigLogIntegrity does not look at modules, /CheckModules does
+# not look at metadata, and /CheckConfig with the mode flags added does both in one pass.
 # /CheckModules without a mode flag checks nothing and still reports "no syntax errors",
 # so the mode flags are not optional.
-CHECK_MODULES_ARGS=(/CheckModules -ThinClient -Server)
-CHECK_CONFIG_ARGS=(/CheckConfig -ConfigLogIntegrity -IncorrectReferences -ThinClient -Server)
+CHECK_INTEGRITY_ARGS=(/CheckConfig -ConfigLogIntegrity)
+CHECK_MODULES_ARGS=(/CheckModules -Server -ThinClient)
+CHECK_BOTH_ARGS=(/CheckConfig -ConfigLogIntegrity -Server -ThinClient)
+
+# Names of the two checks in the JSON result.
+CHECK_KIND_INTEGRITY="integrity"
+CHECK_KIND_MODULES="modules"
+
+# Edited metadata lives in .xml files: one of them among the task's files calls for the
+# integrity check.
+XML_EXTENSION=".xml"
 
 # Whole-line messages of a clean check. They contain "ошибок" / "не обнаружено" / "errors",
 # so a check log must never go through designer_errors unfiltered.
@@ -211,12 +223,21 @@ module_ids_for_paths() {
     local path ids result=""
     for path in "$@"; do
         if ! ids="$(module_ids_for_path "$path")"; then
-            die "$EXIT_USAGE" "Cannot map module file to a module id: $path (run with --mode $CHECK_MODE_CONFIG to check without module filtering)"
+            die "$EXIT_USAGE" "Cannot map module file to a module id: $path"
         fi
         [ -n "$ids" ] && result="$result$ids
 "
     done
     MODULE_IDS="$(printf '%s' "$result" | awk 'length($0) > 0 && !seen[$0]++')"
+}
+
+is_metadata_edited() {
+    # is_metadata_edited <path>... -> 0 when the task touched metadata, i.e. at least one .xml file
+    local path
+    for path in "$@"; do
+        case "$path" in *"$XML_EXTENSION") return 0 ;; esac
+    done
+    return 1
 }
 
 # ---- Check-log parsing ----
@@ -232,19 +253,20 @@ check_findings() {
 }
 
 split_check_findings() {
-    # split_check_findings <findings> <module-ids> <edited|other>
-    # edited = findings in one of the given modules; other = everything else, including
-    # findings that name no module.
+    # split_check_findings <findings> <module-ids> <edited|elsewhere|unattributed>
+    # edited = findings in one of the given modules; elsewhere = findings in any other
+    # module; unattributed = findings that name no module (integrity findings name a
+    # metadata object instead).
     awk -v want="$3" '
         NR == FNR { if (length($0) > 0) ids[$0] = 1; next }
         length($0) == 0 { next }
         {
-            module = ""
+            group = "unattributed"
             if ($0 ~ /^\{[^()]+\([0-9]+(,[0-9]+)?\)\}:/) {
                 module = substr($0, 2, index($0, "(") - 2)
+                group = (module in ids) ? "edited" : "elsewhere"
             }
-            in_edited = (module != "" && (module in ids)) ? "edited" : "other"
-            if (in_edited == want) print
+            if (group == want) print
         }' <(printf '%s\n' "$2") <(printf '%s\n' "$1")
 }
 

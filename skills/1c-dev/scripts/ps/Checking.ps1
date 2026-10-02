@@ -6,10 +6,22 @@
 # /CheckConfig and /CheckModules exit with this code when the check ran and found errors.
 $DESIGNER_EXIT_CHECK_ERRORS = 101
 
+# One designer run per check-config call, chosen by what is to be checked.
+# /CheckConfig with only -ConfigLogIntegrity does not look at modules, /CheckModules does
+# not look at metadata, and /CheckConfig with the mode flags added does both in one pass.
 # /CheckModules without a mode flag checks nothing and still reports "no syntax errors",
 # so the mode flags are not optional.
-$CHECK_MODULES_ARGS = @('/CheckModules', '-ThinClient', '-Server')
-$CHECK_CONFIG_ARGS  = @('/CheckConfig', '-ConfigLogIntegrity', '-IncorrectReferences', '-ThinClient', '-Server')
+$CHECK_INTEGRITY_ARGS = @('/CheckConfig', '-ConfigLogIntegrity')
+$CHECK_MODULES_ARGS   = @('/CheckModules', '-Server', '-ThinClient')
+$CHECK_BOTH_ARGS      = @('/CheckConfig', '-ConfigLogIntegrity', '-Server', '-ThinClient')
+
+# Names of the two checks in the JSON result.
+$CHECK_KIND_INTEGRITY = 'integrity'
+$CHECK_KIND_MODULES   = 'modules'
+
+# Edited metadata lives in .xml files: one of them among the task's files calls for the
+# integrity check.
+$XML_EXTENSION = '.xml'
 
 # Whole-line messages of a clean check. They contain "ошибок" / "не обнаружено" / "errors",
 # so a check log must never go through Get-DesignerErrors unfiltered.
@@ -183,6 +195,14 @@ function ConvertTo-ModuleIdSet([string[]]$RelativePaths) {
     return $ids
 }
 
+function Test-MetadataEdited([string[]]$RelativePaths) {
+    # True when the task touched metadata, i.e. at least one .xml file.
+    foreach ($path in $RelativePaths) {
+        if ($path.EndsWith($XML_EXTENSION, [StringComparison]::Ordinal)) { return $true }
+    }
+    return $false
+}
+
 # ---- Check-log parsing ----
 function Get-CheckFindings([string]$Log) {
     # Finding lines of a check log, in log order, without repeats: the same finding is
@@ -206,13 +226,21 @@ function Get-FindingModule([string]$Finding) {
 }
 
 function Split-CheckFindings([string[]]$Findings, [string[]]$ModuleIds) {
-    # Edited = findings in one of the given modules; Other = everything else, including
-    # findings that name no module.
+    # Edited = findings in one of the given modules; Elsewhere = findings in any other
+    # module; Unattributed = findings that name no module (integrity findings name a
+    # metadata object instead).
     $edited = New-Object 'System.Collections.Generic.List[string]'
-    $other = New-Object 'System.Collections.Generic.List[string]'
+    $elsewhere = New-Object 'System.Collections.Generic.List[string]'
+    $unattributed = New-Object 'System.Collections.Generic.List[string]'
     foreach ($finding in $Findings) {
         $module = Get-FindingModule $finding
-        if ($module -and ($ModuleIds -ccontains $module)) { $edited.Add($finding) } else { $other.Add($finding) }
+        if (-not $module) { $unattributed.Add($finding) }
+        elseif ($ModuleIds -ccontains $module) { $edited.Add($finding) }
+        else { $elsewhere.Add($finding) }
     }
-    return [PSCustomObject]@{ Edited = $edited.ToArray(); Other = $other.ToArray() }
+    return [PSCustomObject]@{
+        Edited       = $edited.ToArray()
+        Elsewhere    = $elsewhere.ToArray()
+        Unattributed = $unattributed.ToArray()
+    }
 }

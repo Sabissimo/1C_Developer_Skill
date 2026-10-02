@@ -14,9 +14,9 @@ interview once, and then just give it tasks. Claude will, on its own:
 - edit the XML/BSL sources,
 - load exactly the changed files back (`LoadConfigFromFiles -listFile`) and update the DB
   configuration,
-- **check the result before committing** — a per-project choice (`checkMode`): the
-  designer's full configuration check, a syntax check that only holds you to the modules
-  the task edited (recommended), or no check at all,
+- **check the result before committing** — a per-project choice (`checkMode`), applied
+  to what the task actually touched: logical integrity when metadata `.xml` was edited,
+  module syntax when a module was; either one alone, both, or no check at all,
 - **commit to the repository** with a task comment.
 
 ## Requirements
@@ -74,9 +74,17 @@ version and asks the designer for a report from `N+1` — a non-empty report mea
 "update before you start".
 
 The post-load check is set per project with `"checkMode"` in `1c-project.json`:
-`"modules"`, `"config"` or `"none"`. Claude asks during setup (and once, on the first
-task, in a project set up before the setting existed). To change it later, edit the key
-or tell Claude to.
+
+| `checkMode` | `.xml` edited | module edited |
+|---|---|---|
+| `"full"` (recommended) | integrity check | module check |
+| `"modules"` | — | module check |
+| `"integrity"` | integrity check | — |
+| `"none"` | — | — |
+
+Claude asks during setup (and once, on the first task, in a project set up before the
+setting existed). To change it later, edit the key or tell Claude to. Only module errors
+in the modules a task edited block its commit; errors elsewhere are reported.
 
 ## Testing
 

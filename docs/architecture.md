@@ -51,7 +51,7 @@ runner (always `/DisableStartupDialogs /DisableStartupMessages /Out`, checks exi
 | sync-xml | `DumpConfigToFiles` (`-update -force` / full to temp + diff) | — |
 | lock-objects | `ConfigurationRepositoryLock -Objects` | appends locked list |
 | load-from-xml | `LoadConfigFromFiles -listFile -updateConfigDumpInfo` → `UpdateDBCfg` | — |
-| check-config | `CheckModules` or `CheckConfig`, per the project's `checkMode` (none = no call) | — |
+| check-config | one of `CheckConfig -ConfigLogIntegrity`, `CheckModules`, or both in one `CheckConfig` — chosen from `checkMode` and the edited files (may be no call) | — |
 | commit-to-repo | `ConfigurationRepositoryCommit` → report | writes version, clears locked list |
 | unlock-objects | `ConfigurationRepositoryUnlock -force` | clears/reduces locked list |
 
@@ -90,21 +90,33 @@ one rewrite: a form module (`…/Ext/Form/Module.bsl`) is listed as its form
 (`…/Ext/Form.xml`). The designer does not accept the module file as a unit of its own
 and loads it together with the form.
 
-**Post-load check.** What runs between load and commit is a per-project choice,
-`checkMode` in `1c-project.json`: `config` (the designer's `/CheckConfig`, every finding
-blocks the commit), `modules` (`/CheckModules`, only findings in the modules edited in
-the task block) or `none`. The setup interview offers all three and recommends
-`modules`; a config without the key means "not chosen yet" — `check-config` skips and
-says so, and Claude asks once and writes the answer back. The script, not Claude, reads
-the setting, so a project that turned the check off is never checked by accident.
+**Post-load check.** What runs between load and commit is decided in two steps. The
+project's `checkMode` in `1c-project.json` says what is *allowed*: `full` (integrity and
+modules), `modules`, `integrity` or `none`. The files edited in the task say what is
+*needed*: an edited `.xml` is a metadata change and calls for the logical-integrity
+check, an edited module calls for the syntax check. `check-config` runs the
+intersection as a single designer call — `/CheckConfig -ConfigLogIntegrity`,
+`/CheckModules -Server -ThinClient`, or `/CheckConfig -ConfigLogIntegrity -Server
+-ThinClient` when both are needed — and no call at all when nothing is. A task that only
+touched a module therefore never pays for an integrity check, and the other way round.
 
-The designer cannot check a subset of modules, so `modules` mode runs the whole-
-configuration syntax check and narrows the *report*: each edited file is mapped to the
+The setup interview offers all four modes and recommends `full`; a config without the
+key means "not chosen yet" — `check-config` skips and says so, and Claude asks once and
+writes the answer back. The script, not Claude, reads the setting and the file list, so
+a project that turned a check off is never checked by accident.
+
+The designer cannot check a subset of modules, so the module check compiles the whole
+configuration and the script narrows the *report*: each edited file is mapped to the
 module id the designer prints (`Документ.Заказ.МодульОбъекта`, in the configuration's
 script variant — Russian and English spellings are both generated), findings in those
-modules are `errors`, everything else is `otherErrors` — returned, but not blocking.
-That keeps a legacy error in an untouched module from holding a task hostage, while an
-edit that breaks a caller elsewhere is still put in front of Claude.
+modules are `errors`, findings in other modules are `otherErrors` — returned, but not
+blocking. That keeps a legacy error in an untouched module from holding a task hostage,
+while an edit that breaks a caller elsewhere is still put in front of Claude. Integrity
+findings name a metadata object rather than a file, so all of them block.
+
+The integrity check overlaps with `load-from-xml`: its `/UpdateDBCfg` step validates the
+metadata as well and refuses to proceed on the same finding, so an inconsistent `.xml`
+normally fails at the load, before `check-config` runs.
 
 Check logs get their own parser. The clean result reads "Ошибок не обнаружено", which
 the generic error-marker scan would flag as a failure; and `/CheckModules` with no mode
@@ -121,7 +133,7 @@ goes to stderr.
 
 - Server infobases only; the dev base is assumed data-free, so `UpdateDBCfg` always runs.
 - Requires platform 8.3.11+ (`ConfigurationRepositoryLock`/`Unlock`).
-- The post-load check covers the thin-client and server modes only; the mode list is a
+- The module check covers the server and thin-client modes only; the mode list is a
   constant in the scripts, not a project setting.
 - Out of scope in v1: configuration extensions, EDT, file infobases, multi-repository
   setups, granular external-data-source parts.
