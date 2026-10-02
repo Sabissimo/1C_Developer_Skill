@@ -98,7 +98,9 @@ For every task that changes configuration files:
        (`lock-objects --objects "Configuration"`), include `Configuration.xml` in the
        file list, and accept the near-full reload time.
 4. **Finish the task**:
-   a. `load-from-xml --files "<same file list>"` — partial load + DB update.
+   a. `load-from-xml --files "<same file list>"` — partial load + DB update. A form
+      module (`…/Ext/Form/Module.bsl`) is loaded through its `…/Ext/Form.xml`; the
+      script makes that substitution itself, so pass the paths you edited.
    b. `commit-to-repo --comment "<task summary>"` — commits everything locked in this
       task and releases the locks.
 5. **Abort path**: if the user cancels the task — revert the file edits (git checkout)

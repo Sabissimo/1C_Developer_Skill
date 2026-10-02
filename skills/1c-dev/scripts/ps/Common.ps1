@@ -18,6 +18,10 @@ $WORK_DIR_NAME    = '.1c-work'
 $OBJECTS_FILE_NAME = 'objects.xml'
 $LOCKED_LIST_NAME  = 'locked-objects.json'
 
+# Dump paths (relative to xmlDir, '/'-separated) of a form's module and of the form itself.
+$FORM_MODULE_SUFFIX = '/Ext/Form/Module.bsl'
+$FORM_FILE_SUFFIX   = '/Ext/Form.xml'
+
 # Designer log lines matching this mean failure even when the exit code is 0.
 $DESIGNER_ERROR_PATTERN = '(?i)(ошибк|error|не удалось|не обнаружен|failed|failure|отказано|access denied|исключительн|нет доступа)'
 $LOCK_CONFLICT_PATTERN  = '(?i)(захвачен|заблокирован|locked by|already locked|не может быть захвачен)'
@@ -168,6 +172,18 @@ function Read-TextSmart([string]$Path) {
 
 function Write-TextUtf8Bom([string]$Path, [string]$Content) {
     [IO.File]::WriteAllText($Path, $Content, (New-Object Text.UTF8Encoding($true)))
+}
+
+# ---- Load-list normalization ----
+function Resolve-LoadPath([string]$RelativePath) {
+    # A form's module is not a loadable unit: listed on its own, /LoadConfigFromFiles
+    # answers "Неизвестный объект метаданных <Class>.<Obj>.Form.<Form>.Ext". The module
+    # travels with the form's Ext/Form.xml, so that is what goes into the load list.
+    $normalized = $RelativePath -replace '\\', '/'
+    if ($normalized.EndsWith($FORM_MODULE_SUFFIX, [StringComparison]::Ordinal)) {
+        return $normalized.Substring(0, $normalized.Length - $FORM_MODULE_SUFFIX.Length) + $FORM_FILE_SUFFIX
+    }
+    return $normalized
 }
 
 # ---- Designer invocation ----

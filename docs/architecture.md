@@ -84,6 +84,11 @@ them; each successful lock is appended to `.1c-work/locked-objects.json`. `commi
 commits exactly that recorded set and clears it; `unlock-objects` is the abort path.
 A lock conflict is a dedicated exit code (3) so Claude reliably stops before editing.
 
+**Load list.** `load-from-xml` passes the designer exactly the files of the task, with
+one rewrite: a form module (`…/Ext/Form/Module.bsl`) is listed as its form
+(`…/Ext/Form.xml`). The designer does not accept the module file as a unit of its own
+and loads it together with the form.
+
 **Error handling.** Every designer call writes a `/Out` log into `.1c-work/`. Failure =
 non-zero exit code OR error-marker lines in the log (the designer is known to exit 0 on
 some failures). Script results are single-line JSON on the last stdout line; progress

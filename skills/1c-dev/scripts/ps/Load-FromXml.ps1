@@ -21,8 +21,15 @@ if ($paths.Count -eq 0) {
     Exit-WithError $EXIT_USAGE 'Nothing to load: pass -Files or -ListFile'
 }
 
-$absolutePaths = @()
+# Form modules load through their form (Resolve-LoadPath); drop the duplicates that creates.
+$loadPaths = @()
 foreach ($relative in $paths) {
+    $resolved = Resolve-LoadPath $relative
+    if ($loadPaths -cnotcontains $resolved) { $loadPaths += $resolved }
+}
+
+$absolutePaths = @()
+foreach ($relative in $loadPaths) {
     $absolute = Join-Path $context.XmlDir ($relative -replace '/', '\')
     if (-not (Test-Path -LiteralPath $absolute)) {
         Exit-WithError $EXIT_USAGE "File not found under xmlDir: $relative"

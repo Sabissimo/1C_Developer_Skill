@@ -34,11 +34,23 @@ if [ -n "$list_file" ]; then
 fi
 [ ${#paths[@]} -gt 0 ] || die "$EXIT_USAGE" "Nothing to load: pass --files or --list-file"
 
+# Form modules load through their form (resolve_load_path); drop the duplicates that creates.
+load_paths=()
+seen_paths=""
+for relative in "${paths[@]}"; do
+    resolved="$(resolve_load_path "$relative")"
+    if ! printf '%s' "$seen_paths" | grep -qxF -- "$resolved"; then
+        load_paths+=("$resolved")
+        seen_paths="$seen_paths$resolved
+"
+    fi
+done
+
 # The designer reads the list file: absolute Windows paths, one per line, UTF-8 with BOM.
 absolute_lines=""
 count=0
-for relative in "${paths[@]}"; do
-    unix_path="$XML_DIR/$(printf '%s' "$relative" | tr '\\' '/')"
+for relative in "${load_paths[@]}"; do
+    unix_path="$XML_DIR/$relative"
     [ -f "$unix_path" ] || die "$EXIT_USAGE" "File not found under xmlDir: $relative"
     absolute_lines="$absolute_lines$(to_win "$unix_path")
 "

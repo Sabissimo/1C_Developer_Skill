@@ -93,6 +93,18 @@ if [ "$flagged" != "2" ]; then
     failures=$((failures + 1))
 fi
 
+# ---- load list: a form module is loaded through its Form.xml ----
+while IFS='|' read -r path expected; do
+    expected="${expected%$'\r'}"
+    [ -n "$path" ] || continue
+    case_count=$((case_count + 1))
+    actual="$(resolve_load_path "$path")"
+    if [ "$actual" != "$expected" ]; then
+        echo "FAIL load path: '$path' -> '$actual' (expected '$expected')"
+        failures=$((failures + 1))
+    fi
+done < "$TESTS_DIR/load-path-cases.txt"
+
 # ---- parity: PowerShell variant must produce identical objects.xml (modulo CRLF) ----
 case_count=$((case_count + 1))
 ps_exe=""

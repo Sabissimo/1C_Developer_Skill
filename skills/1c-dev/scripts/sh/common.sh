@@ -16,6 +16,10 @@ WORK_DIR_NAME=".1c-work"
 OBJECTS_FILE_NAME="objects.xml"
 LOCKED_LIST_NAME="locked-objects.json"
 
+# Dump paths (relative to xmlDir, '/'-separated) of a form's module and of the form itself.
+FORM_MODULE_SUFFIX="/Ext/Form/Module.bsl"
+FORM_FILE_SUFFIX="/Ext/Form.xml"
+
 # Designer log lines matching this mean failure even when the exit code is 0.
 DESIGNER_ERROR_PATTERN='(ошибк|Ошибк|ОШИБК|error|Error|ERROR|не удалось|Не удалось|не обнаружен|failed|Failed|failure|отказано|access denied|исключительн|Исключительн|нет доступа)'
 LOCK_CONFLICT_PATTERN='(захвачен|Захвачен|заблокирован|locked by|already locked|не может быть захвачен)'
@@ -196,6 +200,20 @@ read_text_smart() {
 write_utf8_bom() {
     # write_utf8_bom <file> <content>
     printf '\xEF\xBB\xBF%s' "$2" > "$1"
+}
+
+# ---- Load-list normalization ----
+resolve_load_path() {
+    # resolve_load_path <relative-path> -> the path to put into the load list.
+    # A form's module is not a loadable unit: listed on its own, /LoadConfigFromFiles
+    # answers "Неизвестный объект метаданных <Class>.<Obj>.Form.<Form>.Ext". The module
+    # travels with the form's Ext/Form.xml, so that is what goes into the load list.
+    local normalized
+    normalized="$(printf '%s' "$1" | tr '\\' '/')"
+    case "$normalized" in
+        *"$FORM_MODULE_SUFFIX") printf '%s' "${normalized%"$FORM_MODULE_SUFFIX"}$FORM_FILE_SUFFIX" ;;
+        *) printf '%s' "$normalized" ;;
+    esac
 }
 
 # ---- Designer invocation ----

@@ -91,6 +91,18 @@ if ($detected.Count -ne 2) {
     $failures++
 }
 
+# ---- load list: a form module is loaded through its Form.xml ----
+foreach ($line in (Get-Content -LiteralPath "$testsDir\load-path-cases.txt" -Encoding UTF8)) {
+    if (-not $line.Trim()) { continue }
+    $parts = $line -split '\|', 2
+    $caseCount++
+    $actual = Resolve-LoadPath $parts[0]
+    if ($actual -cne $parts[1]) {
+        Write-Host "FAIL load path: '$($parts[0])' -> '$actual' (expected '$($parts[1])')"
+        $failures++
+    }
+}
+
 if ($failures -gt 0) {
     Write-Host "ps tests: $failures failure(s) out of $caseCount cases"
     exit 1

@@ -1,0 +1,6 @@
+Catalogs/Товары/Forms/ФормаЭлемента/Ext/Form/Module.bsl|Catalogs/Товары/Forms/ФормаЭлемента/Ext/Form.xml
+CommonForms\Настройки\Ext\Form\Module.bsl|CommonForms/Настройки/Ext/Form.xml
+Catalogs/Товары/Forms/ФормаЭлемента/Ext/Form.xml|Catalogs/Товары/Forms/ФормаЭлемента/Ext/Form.xml
+Catalogs/Товары/Ext/ObjectModule.bsl|Catalogs/Товары/Ext/ObjectModule.bsl
+CommonModules/ОбщегоНазначения/Ext/Module.bsl|CommonModules/ОбщегоНазначения/Ext/Module.bsl
+Documents\Заказ.xml|Documents/Заказ.xml

@@ -91,6 +91,10 @@ Map changed files to metadata objects and lock them in the repository.
 ### load-from-xml
 Partial load of edited files into the main configuration + DB update.
 - Args: `--files` / `--list-file` (paths relative to `xmlDir`), required.
+- A form module (`…/Ext/Form/Module.bsl`) is replaced by its form (`…/Ext/Form.xml`) and
+  the list is deduplicated: the designer rejects the module file on its own
+  (`Неизвестный объект метаданных …Form.<Имя>.Ext`) and loads it with the form.
+  `loaded` counts the files actually listed.
 - Writes an absolute-Windows-path list file (UTF-8 BOM), runs
   `/LoadConfigFromFiles <xmlDir> -listFile <file> -updateConfigDumpInfo`, then `/UpdateDBCfg`.
 - Result: `{"ok":true,"loaded":<int>}`
