@@ -41,7 +41,7 @@ MAX_REPORTED_FINDINGS=50
 # The designer names a module by the configuration's script variant, not by the UI
 # language: a Russian-variant configuration prints Документ.Заказ.МодульОбъекта even
 # under /Len. Both spellings are generated and either one matches.
-EXT_DIR_NAME="Ext"
+# (EXT_DIR_NAME comes from mapping.sh.)
 FORMS_DIR_NAME="Forms"
 COMMANDS_DIR_NAME="Commands"
 MODULE_EXTENSION=".bsl"

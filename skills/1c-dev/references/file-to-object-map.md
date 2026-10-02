@@ -8,9 +8,14 @@ sync.
 
 1. Normalize separators to `/`; strip a leading `./`.
 2. `ConfigDumpInfo.xml` → **no object** (never locked, never edited by hand).
-3. `Configuration.xml` or anything under `Configuration/` → the **root** object
-   (`<Configuration/>` element in objects.xml). Locking the root is required for
-   configuration-level properties (subsystem composition, defaults, etc.).
+3. `Configuration.xml`, anything under `Configuration/`, and anything under the
+   top-level `Ext/` → the **root** object (`<Configuration/>` element in objects.xml).
+   Locking the root is required for configuration-level properties (subsystem
+   composition, defaults, etc.) and for what the dump keeps in `<xmlDir>/Ext`: the
+   configuration's own modules (`SessionModule.bsl`, `ManagedApplicationModule.bsl`,
+   `OrdinaryApplicationModule.bsl`, `ExternalConnectionModule.bsl`), command interface,
+   home page. Only the *top-level* `Ext/` is the root's — an object's own
+   `<Dir>/<Obj>/Ext/…` falls under rule 6.
 4. First path segment must be a known plural directory (table below) → class name.
    Second segment (with `.xml`/`.bsl`/`.mdo` stripped) → object name: `Class.Имя`.
 5. **Forms and templates are separately lockable**:
@@ -34,6 +39,7 @@ sync.
 | `CommonModules/ОбщегоНазначения/Ext/Module.bsl` | `CommonModule.ОбщегоНазначения` |
 | `CommonForms/Настройки/Ext/Form/Module.bsl` | `CommonForm.Настройки` |
 | `Configuration.xml` | root `Configuration` |
+| `Ext/SessionModule.bsl` | root `Configuration` |
 | `ConfigDumpInfo.xml` | — (skipped) |
 
 ## Directory → class table
@@ -121,7 +127,8 @@ Files that hold no module (object `.xml`, templates, predefined data) map to not
 `.bsl` file that fits none of the rows is an **error** (exit 4), never a silent skip —
 otherwise that module's findings would be filed under "elsewhere".
 
-Verified live (8.3.19.1351, Russian script variant): `МодульОбъекта`, `МодульМенеджера`
-and the form id. The other rows and the English spellings follow the platform's naming
+Verified live (8.3.19.1351, Russian script variant): `МодульОбъекта`, `МодульМенеджера`,
+the form id and the root `МодульСеанса` (printed bare: `{МодульСеанса(2,2)}: …`). The
+other rows and the English spellings follow the platform's naming
 but have not been seen in a real check log yet; nested external-data-source tables and
 recalculations have no row.

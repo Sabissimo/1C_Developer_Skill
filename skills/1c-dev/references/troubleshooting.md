@@ -32,6 +32,11 @@ errors (object, manager and form modules) loaded on purpose under a lock:
   `otherErrors` and do not block; a clean base passes; a base that cannot be opened is
   exit 1, not 5.
 
+Root modules, same build, both variants: `lock-objects --files "Ext/SessionModule.bsl"`
+locks the root `Configuration`; a session module added under that lock loads on its own
+through `load-from-xml`, and its error comes back from `check-config` as
+`{МодульСеанса(2,2)}: …` in `errors`.
+
 Timing was measured only on that small configuration (6–7 s per run, the combined run
 included); how long any of the three takes on a large one is **unverified**.
 
@@ -67,6 +72,8 @@ included); how long any of the three takes on a large one is **unverified**.
 | exit 1 on `load-from-xml` within seconds, log mentions "не захвачен"/"not locked" | the object is not locked — the хранилище refuses the **load**, not just the commit. With `Configuration.xml` in the file list the object named is `Configuration` | `lock-objects` for the object the log names (`--objects "Configuration"` for the root), then retry the load |
 | exit 1 on `load-from-xml`, log says `Неизвестный объект метаданных <Class>.<Obj>.Form.<Имя>.Ext` | a form's `Ext/Form/Module.bsl` was listed on its own — the designer loads a form module only together with the form | fixed in 1.0.4: the script lists the form's `Ext/Form.xml` instead; on an older copy pass `…/Ext/Form.xml` yourself |
 | exit 1 on `load-from-xml`, `log` is `При проверке метаданных обнаружены ошибки!` (designer exit 101) | the loaded metadata fails the logical-integrity check that `/UpdateDBCfg` runs — the files **were** loaded into the main configuration, the database update was refused | the specific finding is the line above it in `logFile` (it carries no error marker, so `log` omits it); fix the `.xml` and load again |
+| exit 4 on `lock-objects --files "Ext/SessionModule.bsl"`, "unknown top-level directory 'Ext'" | pre-1.1.1 mapping did not know the dump's top-level `Ext/` (the configuration's own modules) | fixed in 1.1.1: such paths lock the root; on an older copy use `--objects "Configuration"` |
+| `lock-objects.sh` calls the designer for a path it cannot map, where `Lock-Objects.ps1` exits 4 | pre-1.1.1 bash variant ran the mapping in a subshell: its error JSON was taken for an object name and written into `objects.xml` | fixed in 1.1.1 — both variants exit 4 before any designer call |
 | exit 5 on `check-config` | the check found errors — `errors` lists module errors as `{module(line,col)}: message`, integrity errors as `Объект: message` | fix them, `load-from-xml` again, re-check; do not commit |
 | `check-config` passes but `otherErrors` is non-empty | errors in modules the task did not edit — pre-existing, or callers broken by the edit | read them; fix the ones the change caused |
 | `check-config` returns `"skipped":true` although a check is configured | nothing among the files that the mode checks: no `.xml` for `integrity`, no module for `modules`, neither for `auto` (`always` never skips) | expected; pass the complete list of edited files so the script can tell |

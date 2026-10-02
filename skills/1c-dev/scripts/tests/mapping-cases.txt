@@ -15,3 +15,6 @@ Roles/ПолныеПрава.xml|Role.ПолныеПрава
 DataProcessors\Загрузка\Ext\ObjectModule.bsl|DataProcessor.Загрузка
 ./Constants/ОсновнаяВалюта.xml|Constant.ОсновнаяВалюта
 ChartsOfAccounts/Хозрасчетный/Forms/ФормаВыбора.xml|ChartOfAccounts.Хозрасчетный.Form.ФормаВыбора
+Ext/SessionModule.bsl|Configuration
+Ext\ManagedApplicationModule.bsl|Configuration
+./Ext/CommandInterface.xml|Configuration

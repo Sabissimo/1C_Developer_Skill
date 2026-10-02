@@ -80,7 +80,8 @@ repository root — at the root a full sync takes `README.md`, `.gitattributes` 
 `1c-project.json` with it. (`.git` survives only because it is hidden.)
 
 **Lock accounting.** `lock-objects` maps file paths to repository objects
-(`Mapping.ps1` / `mapping.sh`; forms and templates are separately lockable) and locks
+(`Mapping.ps1` / `mapping.sh`; forms and templates are separately lockable, the dump's
+top-level `Ext/` — the configuration's own modules — is the root object) and locks
 them; each successful lock is appended to `.1c-work/locked-objects.json`. `commit-to-repo`
 commits exactly that recorded set and clears it; `unlock-objects` is the abort path.
 A lock conflict is a dedicated exit code (3) so Claude reliably stops before editing.

@@ -53,6 +53,9 @@ $CLASS_BY_DIR = @{
 }
 
 $ROOT_OBJECT_NAME = 'Configuration'
+# <xmlDir>/Ext holds what belongs to the configuration itself: its modules
+# (SessionModule.bsl, ManagedApplicationModule.bsl, ...), command interface, home page.
+$EXT_DIR_NAME = 'Ext'
 
 function Remove-XmlExtension([string]$Name) {
     return ($Name -replace '\.(xml|bsl|mdo)$', '')
@@ -67,7 +70,7 @@ function ConvertTo-MetadataObject([string]$RelativePath) {
 
     $first = $segments[0]
     if ($first -eq 'ConfigDumpInfo.xml') { return $null }
-    if ($first -eq 'Configuration.xml' -or $first -eq 'Configuration') { return $ROOT_OBJECT_NAME }
+    if ($first -eq 'Configuration.xml' -or $first -eq 'Configuration' -or $first -eq $EXT_DIR_NAME) { return $ROOT_OBJECT_NAME }
 
     if (-not $CLASS_BY_DIR.ContainsKey($first)) {
         throw "Cannot map path to a metadata object: $RelativePath (unknown top-level directory '$first')"

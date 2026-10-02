@@ -4,6 +4,9 @@
 # Rules: references/file-to-object-map.md; contract: references/script-contract.md.
 
 ROOT_OBJECT_NAME="Configuration"
+# <xmlDir>/Ext holds what belongs to the configuration itself: its modules
+# (SessionModule.bsl, ManagedApplicationModule.bsl, ...), command interface, home page.
+EXT_DIR_NAME="Ext"
 
 class_by_dir() {
     # class_by_dir <top-level-dir> -> class name, or "" if unknown
@@ -73,7 +76,7 @@ map_path_to_object() {
 
     first="${segments[0]}"
     if [ "$first" = "ConfigDumpInfo.xml" ]; then return 0; fi
-    if [ "$first" = "Configuration.xml" ] || [ "$first" = "Configuration" ]; then
+    if [ "$first" = "Configuration.xml" ] || [ "$first" = "Configuration" ] || [ "$first" = "$EXT_DIR_NAME" ]; then
         echo "$ROOT_OBJECT_NAME"
         return 0
     fi
@@ -101,7 +104,10 @@ map_path_to_object() {
 }
 
 map_paths_to_objects() {
-    # map_paths_to_objects <path>... -> unique object names, one per line. Dies on unmappable paths.
+    # map_paths_to_objects <path>...
+    # Sets MAPPED_OBJECTS: unique object names, one per line. Dies on unmappable paths —
+    # so call it directly, never inside $(...) or <(...), where die would only end the
+    # subshell and its JSON would be read as an object name instead of being printed.
     local path mapped result=""
     for path in "$@"; do
         if ! mapped="$(map_path_to_object "$path")"; then
@@ -110,7 +116,7 @@ map_paths_to_objects() {
         [ -n "$mapped" ] && result="$result$mapped
 "
     done
-    printf '%s' "$result" | sort -u | sed '/^$/d'
+    MAPPED_OBJECTS="$(printf '%s' "$result" | sort -u | sed '/^$/d')"
 }
 
 write_objects_xml() {

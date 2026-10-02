@@ -34,6 +34,28 @@ if map_path_to_object "Nonsense/Файл.xml" >/dev/null 2>&1; then
     failures=$((failures + 1))
 fi
 
+# ---- lock-objects, whole script: an unmappable path stops it with exit 4 before any designer call ----
+# Regression: the mapping used to run inside <(...), where die only ended the subshell and
+# its JSON was read as an object name.
+case_count=$((case_count + 1))
+lock_project="$(mktemp -d -t 1c-dev-test-lock-XXXX)"
+printf '%s\n' '{"infobase":{"server":"none","base":"none"},"repository":{"path":"none"},"xmlDir":"src","tempXmlDir":".1c-temp"}' \
+    > "$lock_project/$CONFIG_FILE_NAME"
+lock_output="$(bash "$TESTS_DIR/../sh/lock-objects.sh" --project-dir "$lock_project" --files "Nonsense/X.xml,Catalogs/A.xml" 2>/dev/null)"
+lock_exit=$?
+lock_result="$(printf '%s\n' "$lock_output" | tail -n 1)"
+lock_objects_file="$lock_project/$WORK_DIR_NAME/$OBJECTS_FILE_NAME"
+case "$lock_result" in
+    *'"ok":false'*'Cannot map path to a metadata object: Nonsense/X.xml'*) lock_message_ok="yes" ;;
+    *) lock_message_ok="no" ;;
+esac
+if [ "$lock_exit" != "$EXIT_USAGE" ] || [ "$lock_message_ok" != "yes" ] || [ -e "$lock_objects_file" ]; then
+    echo "FAIL lock-objects unmappable path: exit $lock_exit, result '$lock_result'"
+    [ -e "$lock_objects_file" ] && echo "  objects.xml was written"
+    failures=$((failures + 1))
+fi
+rm -rf "$lock_project"
+
 # ---- objects.xml generation ----
 case_count=$((case_count + 1))
 out_file="$(mktemp -t 1c-dev-test-objects-XXXX.xml)"

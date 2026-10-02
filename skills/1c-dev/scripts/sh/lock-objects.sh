@@ -42,9 +42,10 @@ else
         done < "$list_file"
     fi
     [ ${#paths[@]} -gt 0 ] || die "$EXIT_USAGE" "Nothing to lock: pass --files, --list-file or --objects"
+    map_paths_to_objects "${paths[@]}"
     while IFS= read -r name; do
         [ -n "$name" ] && object_names+=("$name")
-    done < <(map_paths_to_objects "${paths[@]}")
+    done <<< "$MAPPED_OBJECTS"
 fi
 [ ${#object_names[@]} -gt 0 ] || die "$EXIT_USAGE" "The given files map to no lockable objects"
 

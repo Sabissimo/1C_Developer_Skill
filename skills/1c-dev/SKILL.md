@@ -90,6 +90,9 @@ For every task that changes configuration files:
 3. **Edit** the XML/BSL files. Rules:
    - Preserve encoding: files are UTF-8 **with BOM** — do not strip it.
    - Never edit `ConfigDumpInfo.xml` by hand.
+   - Files in the dump's top-level `Ext/` (`SessionModule.bsl`,
+     `ManagedApplicationModule.bsl`, command interface, …) belong to the configuration
+     itself: `lock-objects` on them takes the **root** `Configuration` lock.
    - A **new** object must be loaded together with its parent, because the parent is
      what enumerates its children: a new form, attribute or template needs the owner's
      `.xml` in the file list; a new *top-level* object needs `Configuration.xml`, and

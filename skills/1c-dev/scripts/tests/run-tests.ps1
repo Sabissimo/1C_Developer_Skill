@@ -33,6 +33,25 @@ try {
     $failures++
 } catch { }
 
+# ---- lock-objects, whole script: an unmappable path stops it with exit 4 before any designer call ----
+$caseCount++
+$lockProject = Join-Path $env:TEMP "1c-dev-test-lock-$PID"
+New-Item -ItemType Directory -Path $lockProject -Force | Out-Null
+[IO.File]::WriteAllText((Join-Path $lockProject $CONFIG_FILE_NAME),
+    '{"infobase":{"server":"none","base":"none"},"repository":{"path":"none"},"xmlDir":"src","tempXmlDir":".1c-temp"}',
+    (New-Object Text.UTF8Encoding($false)))
+$hostExe = (Get-Process -Id $PID).Path
+$lockOutput = @(& $hostExe -NoProfile -NonInteractive -File "$testsDir\..\ps\Lock-Objects.ps1" -ProjectDir $lockProject -Files 'Nonsense/X.xml,Catalogs/A.xml' 2>$null)
+$lockExit = $LASTEXITCODE
+$lockResult = "$($lockOutput | Select-Object -Last 1)"
+$lockObjectsFile = Join-Path (Join-Path $lockProject $WORK_DIR_NAME) $OBJECTS_FILE_NAME
+if ($lockExit -ne $EXIT_USAGE -or $lockResult -notlike '*"ok":false*' -or
+    $lockResult -notlike '*Cannot map path to a metadata object: Nonsense/X.xml*' -or (Test-Path -LiteralPath $lockObjectsFile)) {
+    Write-Host "FAIL lock-objects unmappable path: exit $lockExit, result '$lockResult', objects.xml written: $(Test-Path -LiteralPath $lockObjectsFile)"
+    $failures++
+}
+Remove-Item -LiteralPath $lockProject -Recurse -Force
+
 # ---- objects.xml generation ----
 $caseCount++
 $outFile = Join-Path $env:TEMP "1c-dev-test-objects.xml"
