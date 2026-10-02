@@ -2,7 +2,7 @@
 
 This repository IS a Claude Code skill (`1c-dev`) that automates the 1C:Enterprise
 configuration-repository round-trip: update from хранилище → dump to XML → lock objects →
-edit XML/BSL → partial load back → commit. It targets **server infobases only** and drives
+edit XML/BSL → partial load back → check → commit. It targets **server infobases only** and drives
 the 1C Designer in batch mode (`1cv8.exe DESIGNER /...`).
 
 The skill itself lives in `skills/1c-dev/` (SKILL.md + scripts + references); the repo

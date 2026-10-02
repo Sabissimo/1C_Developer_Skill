@@ -6,6 +6,7 @@ TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 . "$TESTS_DIR/../sh/common.sh"
 . "$TESTS_DIR/../sh/mapping.sh"
+. "$TESTS_DIR/../sh/checking.sh"
 
 # mapping.sh functions may call die/info from common.sh; LOCKED_LIST isn't needed here.
 failures=0
@@ -105,6 +106,68 @@ while IFS='|' read -r path expected; do
     fi
 done < "$TESTS_DIR/load-path-cases.txt"
 
+# ---- module ids: dump file -> the ids a check finding may carry ----
+join_ids() {
+    # join_ids <path> -> "ru|en", "" for a file without a module, "!" for an unmappable module
+    local ids
+    if ! ids="$(module_ids_for_path "$1")"; then
+        printf '!'
+        return 0
+    fi
+    printf '%s' "$ids" | tr '\n' '|' | sed 's/|$//'
+}
+while IFS='|' read -r path expected; do
+    expected="${expected%$'\r'}"
+    [ -n "$path" ] || continue
+    case_count=$((case_count + 1))
+    actual="$(join_ids "$path")"
+    case "$actual" in
+        "") actual="-|-" ;;
+        "!") actual="!|!" ;;
+    esac
+    if [ "$actual" != "$expected" ]; then
+        echo "FAIL module ids: '$path' -> '$actual' (expected '$expected')"
+        failures=$((failures + 1))
+    fi
+done < "$TESTS_DIR/module-id-cases.txt"
+
+# ---- check log: repeats collapse, context lines and the repository notice drop out ----
+case_count=$((case_count + 1))
+findings="$(check_findings "$(read_text_smart "$TESTS_DIR/check-log-errors.txt")")"
+if [ "$(count_lines "$findings")" != "4" ]; then
+    echo "FAIL check log: $(count_lines "$findings") finding(s), expected 4"
+    printf '%s\n' "$findings" | sed 's/^/  /'
+    failures=$((failures + 1))
+fi
+
+# ---- check log: "no errors" lines are not findings, though they match the error pattern ----
+case_count=$((case_count + 1))
+clean_findings="$(check_findings "$(read_text_smart "$TESTS_DIR/check-log-clean.txt")")"
+if [ -n "$clean_findings" ]; then
+    echo "FAIL check log: clean log produced $(count_lines "$clean_findings") finding(s)"
+    printf '%s\n' "$clean_findings" | sed 's/^/  /'
+    failures=$((failures + 1))
+fi
+
+# ---- check log: only findings in the edited modules count; the rest is reported apart ----
+case_count=$((case_count + 1))
+# The files "edited" in this scenario — the same list is spelled out in Write-CheckingParity.ps1.
+EDITED_FILES=(
+    "Documents/Инвентаризация/Ext/ObjectModule.bsl"
+    "Documents/Инвентаризация/Forms/ФормаДокумента/Ext/Form.xml"
+    "Documents/Инвентаризация.xml"
+)
+module_ids_for_paths "${EDITED_FILES[@]}"
+edited_ids="$MODULE_IDS"
+with_unstructured="$findings
+Нарушена ссылочная целостность"
+edited_count="$(count_lines "$(split_check_findings "$with_unstructured" "$edited_ids" edited)")"
+other_count="$(count_lines "$(split_check_findings "$with_unstructured" "$edited_ids" other)")"
+if [ "$edited_count" != "3" ] || [ "$other_count" != "2" ]; then
+    echo "FAIL check split: $edited_count edited / $other_count other, expected 3 / 2"
+    failures=$((failures + 1))
+fi
+
 # ---- parity: PowerShell variant must produce identical objects.xml (modulo CRLF) ----
 case_count=$((case_count + 1))
 ps_exe=""
@@ -120,6 +183,27 @@ if [ -n "$ps_exe" ]; then
         failures=$((failures + 1))
     fi
     rm -f "$ps_out_file"
+
+    # ---- parity: module ids and check-log findings must match line for line ----
+    case_count=$((case_count + 1))
+    sh_parity_file="$(mktemp -t 1c-dev-test-checking-sh-XXXX.txt)"
+    ps_parity_file="$(mktemp -t 1c-dev-test-checking-ps-XXXX.txt)"
+    {
+        while IFS='|' read -r path _; do
+            [ -n "$path" ] || continue
+            printf 'ids %s => %s\n' "$path" "$(join_ids "$path")"
+        done < "$TESTS_DIR/module-id-cases.txt"
+        printf '%s\n' "$findings" | sed '/^$/d; s/^/finding /'
+        split_check_findings "$findings" "$edited_ids" edited | sed 's/^/edited /'
+        split_check_findings "$findings" "$edited_ids" other | sed 's/^/other /'
+    } > "$sh_parity_file"
+    "$ps_exe" -NoProfile -NonInteractive -File "$(to_win "$TESTS_DIR/Write-CheckingParity.ps1")" "$(to_win "$ps_parity_file")" >/dev/null
+    if ! diff <(tr -d '\r' < "$sh_parity_file") <(tr -d '\r' < "$ps_parity_file") >/dev/null; then
+        echo "FAIL parity: bash and PowerShell module ids / check findings differ"
+        diff <(tr -d '\r' < "$sh_parity_file") <(tr -d '\r' < "$ps_parity_file") || true
+        failures=$((failures + 1))
+    fi
+    rm -f "$sh_parity_file" "$ps_parity_file"
 else
     echo "skip parity: no pwsh/powershell.exe available"
 fi

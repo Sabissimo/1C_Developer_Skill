@@ -20,6 +20,7 @@ same commit.
   | 2 | missing/invalid `1c-project.json`, or no 1C platform installed |
   | 3 | repository lock conflict (object held by another user) |
   | 4 | bad script arguments |
+  | 5 | the configuration check ran and found errors (`check-config` only) |
 - **Designer calls:** always append `/DisableStartupDialogs /DisableStartupMessages
   /Out <workdir>/<name>.log`; treat as failed when exit code ≠ 0 **or** the log contains
   error-marker lines (see `DESIGNER_ERROR_PATTERN` in the cores).
@@ -37,9 +38,21 @@ same commit.
   "infobase":  { "server": "srv1c", "base": "dev_base", "user": "Admin", "password": "" },
   "repository": { "path": "tcp://srv1c/repo", "user": "dev", "password": "" },
   "xmlDir": "src",                           // relative to project dir, or absolute
-  "tempXmlDir": ".1c-temp"                   // used only by the full-dump fallback
+  "tempXmlDir": ".1c-temp",                  // used only by the full-dump fallback
+  "checkMode": "modules"                     // optional: "config" | "modules" | "none"
 }
 ```
+
+`checkMode` picks what `check-config` runs between load and commit:
+
+| value | check | what blocks the commit |
+|---|---|---|
+| `config` | `/CheckConfig` (integrity, references, thin client + server modules) | every finding |
+| `modules` | `/CheckModules` (thin client + server) | findings in the modules edited in the task |
+| `none` | nothing | — |
+
+The key is optional. Absent means *not chosen yet*: `check-config` skips and reports
+`"mode":"unset"`. Any other value is an invalid config — **every** script exits 2 on it.
 
 `.1c-state.json`: `{ "lastRepoVersion": <int>, "lastSync": "<ISO-8601 UTC>" }`.
 
@@ -98,6 +111,35 @@ Partial load of edited files into the main configuration + DB update.
 - Writes an absolute-Windows-path list file (UTF-8 BOM), runs
   `/LoadConfigFromFiles <xmlDir> -listFile <file> -updateConfigDumpInfo`, then `/UpdateDBCfg`.
 - Result: `{"ok":true,"loaded":<int>}`
+
+### check-config
+Check the main configuration after a load, as the project's `checkMode` says.
+- Args: `--files` / `--list-file` (the files edited in the task, paths relative to
+  `xmlDir`) — required in `modules` mode, ignored otherwise;
+  `--mode config|modules|none` / `-Mode` — overrides `checkMode` for this run.
+- `none`, `unset`, or `modules` with no module among the files: no designer call,
+  `{"ok":true,"mode":"<mode>","skipped":true,"reason":"<why>"}`.
+- `modules`: `/CheckModules -ThinClient -Server`. `config`:
+  `/CheckConfig -ConfigLogIntegrity -IncorrectReferences -ThinClient -Server`. No
+  repository connection is opened.
+- Designer exit code `0` = clean, `101` = the check found errors, anything else = the
+  check did not run (exit 1). The generic error-marker scan is **not** applied to the raw
+  log — "Ошибок не обнаружено" matches it — only to what remains after the clean lines
+  are removed.
+- Findings are the log lines left after dropping the quoted source lines (`<<?>>`), the
+  clean lines and the repository notice; repeats (one per checked mode) collapse.
+  `{<module id>(<line>,<col>)}: <message>` names the module.
+- `modules` mode splits them: `errors` = findings in a module of the given files,
+  `otherErrors` = the rest (other modules, and findings that name no module). A file maps
+  to module ids as in references/file-to-object-map.md; a `.bsl` file that cannot be
+  mapped is exit 4, not a silent pass. `config` mode puts every finding in `errors`.
+- **Exit 5** when `errors` is non-empty (or the designer reported errors and no finding
+  line was recognised):
+  `{"ok":false,"error":"Configuration check found errors","mode":"<mode>","errorCount":<int>,"errors":[...],"otherErrorCount":<int>,"otherErrors":[...],"logFile":"<path>"}`
+- Otherwise:
+  `{"ok":true,"mode":"<mode>","skipped":false,"errorCount":0,"otherErrorCount":<int>,"otherErrors":[...],"logFile":"<path>"}`
+- `errors` / `otherErrors` list at most 50 lines each; the counts are complete and
+  `logFile` has everything. Does not modify state.
 
 ### commit-to-repo
 Commit locked objects to the repository (releases the locks).

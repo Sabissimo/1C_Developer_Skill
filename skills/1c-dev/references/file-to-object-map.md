@@ -89,3 +89,39 @@ sync.
 
 Known v1 simplification: nested parts of `ExternalDataSources` (tables, cubes) and
 `CalculationRegisters` recalculations map to their top-level object.
+
+## File → module id (for `check-config`)
+
+A different mapping with a different target: the name the designer prints in a check
+finding, `{Документ.Заказ.МодульОбъекта(3,11)}: …`. Implemented in
+`scripts/ps/Checking.ps1` and `scripts/sh/checking.sh`; the shared case table is
+`scripts/tests/module-id-cases.txt`.
+
+The id follows the configuration's **script variant**, so each file yields two ids — the
+Russian and the English spelling — and a finding matches on either.
+
+| Path | Module id (Russian / English) |
+|---|---|
+| `<Dir>/<Имя>/Ext/ObjectModule.bsl` | `Класс.Имя.МодульОбъекта` / `Class.Имя.ObjectModule` |
+| `<Dir>/<Имя>/Ext/ManagerModule.bsl` | `….МодульМенеджера` / `….ManagerModule` |
+| `<Dir>/<Имя>/Ext/RecordSetModule.bsl` | `….МодульНабораЗаписей` / `….RecordSetModule` |
+| `<Dir>/<Имя>/Ext/ValueManagerModule.bsl` | `….МодульМенеджераЗначения` / `….ValueManagerModule` |
+| `<Dir>/<Имя>/Ext/CommandModule.bsl` | `….МодульКоманды` / `….CommandModule` |
+| `<Dir>/<Имя>/Ext/Module.bsl` | `….Модуль` / `….Module` |
+| `<Dir>/<Имя>/Forms/<Форма>/Ext/Form/Module.bsl` or `…/Ext/Form.xml` | `Класс.Имя.Форма.<Форма>.Форма` / `Class.Имя.Form.<Форма>.Form` |
+| `CommonForms/<Имя>/Ext/Form/Module.bsl` or `…/Ext/Form.xml` | `ОбщаяФорма.Имя.Форма` / `CommonForm.Имя.Form` |
+| `<Dir>/<Имя>/Commands/<Команда>/Ext/CommandModule.bsl` | `Класс.Имя.Команда.<Команда>.МодульКоманды` / `Class.Имя.Command.<Команда>.CommandModule` |
+| `Ext/ManagedApplicationModule.bsl`, `Ext/OrdinaryApplicationModule.bsl`, `Ext/SessionModule.bsl`, `Ext/ExternalConnectionModule.bsl` | `МодульУправляемогоПриложения`, `МодульОбычногоПриложения`, `МодульСеанса`, `МодульВнешнегоСоединения` / the file name |
+
+`Класс` is the Russian class name (`Справочник`, `Документ`, `ОбщийМодуль`, … — table
+`CLASS_RU_BY_DIR` / `class_ru_by_dir`). A form's `Ext/Form.xml` counts as its module
+because that is the file `load-from-xml` lists for it.
+
+Files that hold no module (object `.xml`, templates, predefined data) map to nothing. A
+`.bsl` file that fits none of the rows is an **error** (exit 4), never a silent skip —
+otherwise that module's findings would be filed under "elsewhere".
+
+Verified live (8.3.19.1351, Russian script variant): `МодульОбъекта`, `МодульМенеджера`
+and the form id. The other rows and the English spellings follow the platform's naming
+but have not been seen in a real check log yet; nested external-data-source tables and
+recalculations have no row.

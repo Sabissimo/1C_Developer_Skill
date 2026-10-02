@@ -5,6 +5,7 @@ $testsDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 . "$testsDir\..\ps\Common.ps1"
 . "$testsDir\..\ps\Mapping.ps1"
+. "$testsDir\..\ps\Checking.ps1"
 
 $failures = 0
 $caseCount = 0
@@ -101,6 +102,55 @@ foreach ($line in (Get-Content -LiteralPath "$testsDir\load-path-cases.txt" -Enc
         Write-Host "FAIL load path: '$($parts[0])' -> '$actual' (expected '$($parts[1])')"
         $failures++
     }
+}
+
+# ---- module ids: dump file -> the ids a check finding may carry ----
+foreach ($line in (Get-Content -LiteralPath "$testsDir\module-id-cases.txt" -Encoding UTF8)) {
+    if (-not $line.Trim()) { continue }
+    $parts = $line -split '\|', 2
+    $caseCount++
+    try {
+        $ids = @(ConvertTo-ModuleIds $parts[0])
+        $actual = '-|-'
+        if ($ids.Count -gt 0) { $actual = $ids -join '|' }
+    } catch {
+        $actual = '!|!'
+    }
+    if ($actual -cne $parts[1]) {
+        Write-Host "FAIL module ids: '$($parts[0])' -> '$actual' (expected '$($parts[1])')"
+        $failures++
+    }
+}
+
+# ---- check log: repeats collapse, context lines and the repository notice drop out ----
+$caseCount++
+$findings = @(Get-CheckFindings (Read-TextSmart "$testsDir\check-log-errors.txt"))
+if ($findings.Count -ne 4) {
+    Write-Host "FAIL check log: $($findings.Count) finding(s), expected 4"
+    $findings | ForEach-Object { Write-Host "  $_" }
+    $failures++
+}
+
+# ---- check log: "no errors" lines are not findings, though they match the error pattern ----
+$caseCount++
+$cleanFindings = @(Get-CheckFindings (Read-TextSmart "$testsDir\check-log-clean.txt"))
+if ($cleanFindings.Count -ne 0) {
+    Write-Host "FAIL check log: clean log produced $($cleanFindings.Count) finding(s)"
+    $cleanFindings | ForEach-Object { Write-Host "  $_" }
+    $failures++
+}
+
+# ---- check log: only findings in the edited modules count; the rest is reported apart ----
+$caseCount++
+$editedIds = @(ConvertTo-ModuleIdSet @(
+    'Documents/Инвентаризация/Ext/ObjectModule.bsl',
+    'Documents/Инвентаризация/Forms/ФормаДокумента/Ext/Form.xml',
+    'Documents/Инвентаризация.xml'
+))
+$split = Split-CheckFindings ($findings + 'Нарушена ссылочная целостность') $editedIds
+if ($split.Edited.Count -ne 3 -or $split.Other.Count -ne 2) {
+    Write-Host "FAIL check split: $($split.Edited.Count) edited / $($split.Other.Count) other, expected 3 / 2"
+    $failures++
 }
 
 if ($failures -gt 0) {

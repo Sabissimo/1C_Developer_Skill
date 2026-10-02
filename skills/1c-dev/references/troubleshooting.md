@@ -18,6 +18,14 @@ incremental dump all pass. That run is what surfaced the two 1.0.1 fixes below �
 thousands-separated version numbers and error words inside metadata names — neither of
 which appears on a repository with fewer than 1 000 versions.
 
+The post-load check was verified live on 8.3.19.1351 in both variants, against object,
+manager and form modules broken on purpose under a lock: `modules` mode exits 5 with
+exactly the edited module's findings and lists the rest under `otherErrors`, passes
+(exit 0) once the edited module is repaired while errors remain elsewhere, `config` mode
+exits 5 with all of them, a clean base passes in both modes, and a base that cannot be
+opened is exit 1, not 5. Timing was measured only on that small configuration (6–7 s
+per check); how long either check takes on a large one is **unverified**.
+
 ## First live run on a different platform build — verify once
 
 1. **objects.xml is accepted** by `/ConfigurationRepositoryLock`. If the designer
@@ -32,6 +40,11 @@ which appears on a repository with fewer than 1 000 versions.
    localized platform needs the label list in `Get-RepoVersionsFromReport` /
    `repo_versions_from_report` extended ("Версия:", "Version:"), and possibly the
    thousands-separator character class alongside `, . ' ` and NBSP.
+4. **Check-log parsing** (`check-config`): break a module on purpose and confirm the
+   finding lands in `errors`, not `otherErrors`. A platform whose clean message differs
+   from the four in `CHECK_CLEAN_PATTERN` shows up as exit 1 on a clean base; a module
+   kind whose id differs from references/file-to-object-map.md shows up as the finding
+   sitting in `otherErrors`.
 
 ## Common failures
 
@@ -43,6 +56,13 @@ which appears on a repository with fewer than 1 000 versions.
 | exit 1 on `update-from-repo`, log mentions "монопольн"/"exclusive" | sessions are open on the dev base | close Designer/Enterprise sessions on the dev base |
 | exit 1 on `load-from-xml` within seconds, log mentions "не захвачен"/"not locked" | the object is not locked — the хранилище refuses the **load**, not just the commit. With `Configuration.xml` in the file list the object named is `Configuration` | `lock-objects` for the object the log names (`--objects "Configuration"` for the root), then retry the load |
 | exit 1 on `load-from-xml`, log says `Неизвестный объект метаданных <Class>.<Obj>.Form.<Имя>.Ext` | a form's `Ext/Form/Module.bsl` was listed on its own — the designer loads a form module only together with the form | fixed in 1.0.4: the script lists the form's `Ext/Form.xml` instead; on an older copy pass `…/Ext/Form.xml` yourself |
+| exit 5 on `check-config` | the check found errors — `errors` lists them as `{module(line,col)}: message` | fix the modules, `load-from-xml` again, re-check; do not commit |
+| `check-config` passes but `otherErrors` is non-empty | errors in modules the task did not edit (mode `modules`) — pre-existing, or callers broken by the edit | read them; fix the ones the change caused. `--mode config` makes all of them blocking |
+| `check-config` returns `"mode":"unset","skipped":true` | `1c-project.json` has no `checkMode` (project set up before 1.1.0) | choose `modules`, `config` or `none` and add the key |
+| exit 2, "checkMode must be one of …" on **any** script | typo in `checkMode` | use `config`, `modules` or `none`, or remove the key |
+| exit 4 on `check-config`, "Cannot map module file to a module id" | a `.bsl` file of a kind the module-id table has no row for | `--mode config` for this run, and file an issue with the path |
+| exit 1 on `check-config` on a base that is actually clean | the platform words its "no errors" line differently | extend `CHECK_CLEAN_PATTERN` in `Checking.ps1` / `checking.sh` with the line from `logFile` |
+| the check takes too long on a large configuration | both designer checks scan the whole configuration; `modules` narrows the report, not the work | set `checkMode` to `none` for the project, and run `check-config --mode modules` by hand when wanted |
 | exit 1 on `commit`, log mentions "не захвачен"/"not locked" | commit set ≠ locked set (state lost) | re-run `lock-objects`, or commit from the Designer once |
 | exit 1 on `UpdateDBCfg` | structure change needs exclusive access | ensure nobody (including you) has the base open |
 | `latestVersion` stops at a suspiciously round **999** and every later `get-repo-changes` reports hundreds of "new" versions | the designer formats the version cell with the locale thousands separator (`{"#","2,555"}`); pre-1.0.1 parsers validated with `^\d+$` and dropped anything ≥ 1000 | fixed in 1.0.1; on an older copy, delete `.1c-state.json` after upgrading so the bad `lastRepoVersion` is re-learned |
@@ -67,7 +87,10 @@ which appears on a repository with fewer than 1 000 versions.
    commit. Safe: nothing is locked, nothing is committed, nothing changes.
 7. Edit a comment in the module, `load-from-xml --files ...` → ok; the change is visible
    in the Designer.
-8. `commit-to-repo --comment "smoke test"` → ok; new version in the repository history;
+8. `check-config --mode modules --files "<the module>"` → ok, `errorCount` 0. Then put a
+   call to a procedure that does not exist into the module, `load-from-xml`, check again
+   → exit 5 with that line in `errors`. Remove it, load, check → ok.
+9. `commit-to-repo --comment "smoke test"` → ok; new version in the repository history;
    lock released.
-9. `update-from-repo` from a second machine/base → the comment arrives.
-10. `unlock-objects` after a fresh lock → lock disappears in the Designer.
+10. `update-from-repo` from a second machine/base → the comment arrives.
+11. `unlock-objects` after a fresh lock → lock disappears in the Designer.

@@ -5,7 +5,7 @@
 `1c-dev` is a user-level Claude Code skill that automates the 1C configuration-repository
 round-trip for **server infobases**. Claude reads `SKILL.md`, picks the script variant
 matching its current shell, and drives the whole cycle: update from the repository →
-XML sync → lock → edit → partial load → commit.
+XML sync → lock → edit → partial load → check → commit.
 
 ```
 Claude Code session
@@ -29,7 +29,7 @@ skill auto-discovered from `skills/1c-dev/`) and as a **manual user-level skill*
 
 | File | Owner | Purpose |
 |---|---|---|
-| `1c-project.json` | setup interview | connection settings, creds, dirs (schema: skills/1c-dev/references/script-contract.md) |
+| `1c-project.json` | setup interview | connection settings, creds, dirs, `checkMode` (schema: skills/1c-dev/references/script-contract.md) |
 | `.1c-state.json` | scripts | `lastRepoVersion` + `lastSync` — the change-detection anchor |
 | `<xmlDir>/` | designer dumps | configuration source of truth for editing (usually `src/`, committed to git) |
 | `<tempXmlDir>/` | sync-xml fallback | scratch area for full dumps, safe to delete |
@@ -51,6 +51,7 @@ runner (always `/DisableStartupDialogs /DisableStartupMessages /Out`, checks exi
 | sync-xml | `DumpConfigToFiles` (`-update -force` / full to temp + diff) | — |
 | lock-objects | `ConfigurationRepositoryLock -Objects` | appends locked list |
 | load-from-xml | `LoadConfigFromFiles -listFile -updateConfigDumpInfo` → `UpdateDBCfg` | — |
+| check-config | `CheckModules` or `CheckConfig`, per the project's `checkMode` (none = no call) | — |
 | commit-to-repo | `ConfigurationRepositoryCommit` → report | writes version, clears locked list |
 | unlock-objects | `ConfigurationRepositoryUnlock -force` | clears/reduces locked list |
 
@@ -89,6 +90,28 @@ one rewrite: a form module (`…/Ext/Form/Module.bsl`) is listed as its form
 (`…/Ext/Form.xml`). The designer does not accept the module file as a unit of its own
 and loads it together with the form.
 
+**Post-load check.** What runs between load and commit is a per-project choice,
+`checkMode` in `1c-project.json`: `config` (the designer's `/CheckConfig`, every finding
+blocks the commit), `modules` (`/CheckModules`, only findings in the modules edited in
+the task block) or `none`. The setup interview offers all three and recommends
+`modules`; a config without the key means "not chosen yet" — `check-config` skips and
+says so, and Claude asks once and writes the answer back. The script, not Claude, reads
+the setting, so a project that turned the check off is never checked by accident.
+
+The designer cannot check a subset of modules, so `modules` mode runs the whole-
+configuration syntax check and narrows the *report*: each edited file is mapped to the
+module id the designer prints (`Документ.Заказ.МодульОбъекта`, in the configuration's
+script variant — Russian and English spellings are both generated), findings in those
+modules are `errors`, everything else is `otherErrors` — returned, but not blocking.
+That keeps a legacy error in an untouched module from holding a task hostage, while an
+edit that breaks a caller elsewhere is still put in front of Claude.
+
+Check logs get their own parser. The clean result reads "Ошибок не обнаружено", which
+the generic error-marker scan would flag as a failure; and `/CheckModules` with no mode
+flag checks nothing while reporting success, so the flags are fixed in the scripts.
+Designer exit `101` means "errors found" (script exit 5), any other non-zero means the
+check never ran (script exit 1).
+
 **Error handling.** Every designer call writes a `/Out` log into `.1c-work/`. Failure =
 non-zero exit code OR error-marker lines in the log (the designer is known to exit 0 on
 some failures). Script results are single-line JSON on the last stdout line; progress
@@ -98,5 +121,7 @@ goes to stderr.
 
 - Server infobases only; the dev base is assumed data-free, so `UpdateDBCfg` always runs.
 - Requires platform 8.3.11+ (`ConfigurationRepositoryLock`/`Unlock`).
+- The post-load check covers the thin-client and server modes only; the mode list is a
+  constant in the scripts, not a project setting.
 - Out of scope in v1: configuration extensions, EDT, file infobases, multi-repository
   setups, granular external-data-source parts.

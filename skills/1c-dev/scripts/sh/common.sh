@@ -9,12 +9,21 @@ EXIT_DESIGNER=1        # designer/batch operation failed
 EXIT_CONFIG=2          # missing/invalid 1c-project.json or environment
 EXIT_LOCK_CONFLICT=3   # object already locked by another repository user
 EXIT_USAGE=4           # bad script arguments
+EXIT_CHECK_FAILED=5    # configuration check found errors
 
 CONFIG_FILE_NAME="1c-project.json"
 STATE_FILE_NAME=".1c-state.json"
 WORK_DIR_NAME=".1c-work"
 OBJECTS_FILE_NAME="objects.xml"
 LOCKED_LIST_NAME="locked-objects.json"
+
+# checkMode values in 1c-project.json. UNSET is not a legal value there: it is what the
+# scripts report when the key is absent, i.e. the project has not chosen yet.
+CHECK_MODE_CONFIG="config"     # designer /CheckConfig, every finding counts
+CHECK_MODE_MODULES="modules"   # designer /CheckModules, only findings in edited modules count
+CHECK_MODE_NONE="none"         # no check
+CHECK_MODE_UNSET="unset"
+CHECK_MODES="$CHECK_MODE_CONFIG, $CHECK_MODE_MODULES, $CHECK_MODE_NONE"
 
 # Dump paths (relative to xmlDir, '/'-separated) of a form's module and of the form itself.
 FORM_MODULE_SUFFIX="/Ext/Form/Module.bsl"
@@ -87,6 +96,14 @@ if obj is not None:
         "\$o = Get-Content -Raw -LiteralPath '$(to_win "$file")' | ConvertFrom-Json; \$v = \$o; foreach (\$k in '$path'.Split('.')) { if (\$null -eq \$v) { break }; \$v = \$v.\$k }; if (\$null -ne \$v) { Write-Output \$v }" 2>/dev/null | tr -d '\r'
 }
 
+is_check_mode() {
+    # is_check_mode <value> -> 0 when the value is a legal checkMode
+    case "$1" in
+        "$CHECK_MODE_CONFIG"|"$CHECK_MODE_MODULES"|"$CHECK_MODE_NONE") return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 # ---- Project context (sets globals) ----
 load_context() {
     # load_context [project-dir]
@@ -113,6 +130,12 @@ load_context() {
     [ -n "$REPO_PATH" ] || die "$EXIT_CONFIG" "Config field missing: repository.path"
     [ -n "$xml_dir" ]   || die "$EXIT_CONFIG" "Config field missing: xmlDir"
     [ -n "$temp_dir" ]  || die "$EXIT_CONFIG" "Config field missing: tempXmlDir"
+
+    CHECK_MODE="$(json_get "$config" checkMode)"
+    [ -n "$CHECK_MODE" ] || CHECK_MODE="$CHECK_MODE_UNSET"
+    if [ "$CHECK_MODE" != "$CHECK_MODE_UNSET" ] && ! is_check_mode "$CHECK_MODE"; then
+        die "$EXIT_CONFIG" "Config field invalid: checkMode must be one of $CHECK_MODES (got '$CHECK_MODE')"
+    fi
 
     CONNECTION="${IB_SERVER}\\${IB_BASE}"
     case "$xml_dir" in

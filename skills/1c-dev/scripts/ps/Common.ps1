@@ -11,12 +11,21 @@ $EXIT_DESIGNER      = 1   # designer/batch operation failed
 $EXIT_CONFIG        = 2   # missing/invalid 1c-project.json or environment
 $EXIT_LOCK_CONFLICT = 3   # object already locked by another repository user
 $EXIT_USAGE         = 4   # bad script arguments
+$EXIT_CHECK_FAILED  = 5   # configuration check found errors
 
 $CONFIG_FILE_NAME = '1c-project.json'
 $STATE_FILE_NAME  = '.1c-state.json'
 $WORK_DIR_NAME    = '.1c-work'
 $OBJECTS_FILE_NAME = 'objects.xml'
 $LOCKED_LIST_NAME  = 'locked-objects.json'
+
+# checkMode values in 1c-project.json. UNSET is not a legal value there: it is what the
+# scripts report when the key is absent, i.e. the project has not chosen yet.
+$CHECK_MODE_CONFIG  = 'config'    # designer /CheckConfig, every finding counts
+$CHECK_MODE_MODULES = 'modules'   # designer /CheckModules, only findings in edited modules count
+$CHECK_MODE_NONE    = 'none'      # no check
+$CHECK_MODE_UNSET   = 'unset'
+$CHECK_MODES = @($CHECK_MODE_CONFIG, $CHECK_MODE_MODULES, $CHECK_MODE_NONE)
 
 # Dump paths (relative to xmlDir, '/'-separated) of a form's module and of the form itself.
 $FORM_MODULE_SUFFIX = '/Ext/Form/Module.bsl'
@@ -71,6 +80,14 @@ function Get-ProjectContext([string]$ProjectDir) {
         Exit-WithError $EXIT_CONFIG 'Config field missing: repository.path'
     }
 
+    $checkMode = $CHECK_MODE_UNSET
+    if (($config.PSObject.Properties.Name -contains 'checkMode') -and $config.checkMode) {
+        $checkMode = [string]$config.checkMode
+        if ($CHECK_MODES -cnotcontains $checkMode) {
+            Exit-WithError $EXIT_CONFIG "Config field invalid: checkMode must be one of $($CHECK_MODES -join ', ') (got '$checkMode')"
+        }
+    }
+
     $workDir = Join-Path $ProjectDir $WORK_DIR_NAME
     if (-not (Test-Path -LiteralPath $workDir)) {
         New-Item -ItemType Directory -Path $workDir -Force | Out-Null
@@ -87,6 +104,7 @@ function Get-ProjectContext([string]$ProjectDir) {
         Connection = "$($config.infobase.server)\$($config.infobase.base)"
         XmlDir     = Resolve-InProject $config.xmlDir
         TempXmlDir = Resolve-InProject $config.tempXmlDir
+        CheckMode  = $checkMode
         WorkDir    = $workDir
         StateFile  = Join-Path $ProjectDir $STATE_FILE_NAME
         ObjectsFile = Join-Path $workDir $OBJECTS_FILE_NAME

@@ -12,7 +12,7 @@ description: >-
 # 1C Developer Skill
 
 Automates the 1C configuration-repository round-trip for **server infobases**: update
-from хранилище → dump to XML → lock objects → edit → partial load back → commit. All
+from хранилище → dump to XML → lock objects → edit → partial load back → check → commit. All
 heavy lifting is done by scripts driving `1cv8.exe DESIGNER` in batch mode.
 
 ## Picking the script variant
@@ -27,7 +27,7 @@ Same behavior, same exit codes; the **last stdout line is a JSON result** (`ok`,
 Run all scripts from the 1C project directory (or pass `--project-dir` / `-ProjectDir`).
 
 Exit codes: `0` ok · `1` designer failed · `2` bad config/environment · `3` **lock
-conflict** · `4` bad arguments.
+conflict** · `4` bad arguments · `5` **the check found errors**.
 
 ## Workflow 1 — Project setup (once per project)
 
@@ -40,6 +40,13 @@ When the user says a project is a 1C project and `1c-project.json` doesn't exist
    the dump does not produce. If the project already has its dump at the repository
    root, move it into `src/` before setting up, or the first full sync will delete
    `README.md` and `1c-project.json` itself.
+   Also ask which **check** runs after every load, before the commit (`checkMode`) —
+   offer all three and recommend keeping one on:
+   - `modules` (**recommended**) — syntax check; only errors in the modules edited in
+     the task block the commit, errors elsewhere are reported but do not.
+   - `config` — the designer's full configuration check; every finding blocks, including
+     ones that were there before the task.
+   - `none` — no check.
 2. Write `1c-project.json` (schema in script-contract.md) into the project root.
 3. Ensure `.gitignore` covers: `1c-project.json`, `.1c-state.json`, `.1c-temp/`, `.1c-work/`.
 4. Run `test-connection` — stop and report if it fails.
@@ -101,7 +108,19 @@ For every task that changes configuration files:
    a. `load-from-xml --files "<same file list>"` — partial load + DB update. A form
       module (`…/Ext/Form/Module.bsl`) is loaded through its `…/Ext/Form.xml`; the
       script makes that substitution itself, so pass the paths you edited.
-   b. `commit-to-repo --comment "<task summary>"` — commits everything locked in this
+   b. `check-config --files "<same file list>"` — runs the check the project chose
+      (`checkMode` in `1c-project.json`). Read the result:
+      - **Exit 5** — the check found errors (`errors`: `{module(line,col)}: message`).
+        Fix them, then repeat a–b. **Do not commit.**
+      - `ok:true` with `otherErrors` (mode `modules`) — errors outside the modules you
+        edited. They do not block, but read them: removing or renaming an exported
+        procedure breaks its *callers*, and that shows up here. If your change caused
+        one, fix it; if it was there before, mention it to the user and go on.
+      - `"mode":"unset"` — the project has not chosen yet. Ask the user once, with the
+        three options from Workflow 1 and `modules` recommended, write `checkMode` into
+        `1c-project.json`, and run the check again.
+      - `skipped:true` otherwise (`none`, or no module among the files) — go on.
+   c. `commit-to-repo --comment "<task summary>"` — commits everything locked in this
       task and releases the locks.
 5. **Abort path**: if the user cancels the task — revert the file edits (git checkout)
    and `unlock-objects`.
@@ -109,13 +128,22 @@ For every task that changes configuration files:
 Multiple `lock-objects` calls accumulate in `.1c-work/locked-objects.json`; `commit-to-repo`
 commits the whole recorded set at once.
 
+The check setting belongs to the project, not to the task: do not skip a configured check
+to save time, and do not run one the project turned off. Change it only when the user
+asks — edit `checkMode` in `1c-project.json`. For a one-off run in another mode (the user
+asks for "a full check now") use `check-config --mode config`; it leaves the setting alone.
+Neither check can be limited to some modules — the designer always scans the whole
+configuration, and `modules` narrows the report, not the work.
+
 ## Hard rules
 
 - **Never edit before locking.** Lock conflict (exit 3) = stop and report.
 - **Never commit to the repository without loading the XML into the configuration
   first** — the repository takes the configuration state, not the files.
+- **Never commit past a failed check** (`check-config` exit 5). Fix and re-check, or stop
+  and report.
 - Designer operations can take minutes on big configurations — use generous tool
-  timeouts (10 min) for `update-from-repo` and full `sync-xml`.
+  timeouts (10 min) for `update-from-repo`, full `sync-xml` and `check-config`.
 - If any script returns `ok:false`, read its `logFile` for the full designer log before
   deciding what to do next.
 - Requirements: Windows, 1C platform **8.3.11+** (for `/ConfigurationRepositoryLock`/

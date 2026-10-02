@@ -12,8 +12,12 @@ interview once, and then just give it tasks. Claude will, on its own:
   full-dump diff fallback),
 - **lock the objects it is about to edit** — and hard-stop if someone else holds them,
 - edit the XML/BSL sources,
-- load exactly the changed files back (`LoadConfigFromFiles -listFile`), update the DB
-  configuration, and **commit to the repository** with a task comment.
+- load exactly the changed files back (`LoadConfigFromFiles -listFile`) and update the DB
+  configuration,
+- **check the result before committing** — a per-project choice (`checkMode`): the
+  designer's full configuration check, a syntax check that only holds you to the modules
+  the task edited (recommended), or no check at all,
+- **commit to the repository** with a task comment.
 
 ## Requirements
 
@@ -50,7 +54,7 @@ your 1C project directory, and say something like: *"Это 1С-проект, н
 
 | File | Purpose | Git |
 |---|---|---|
-| `1c-project.json` | connection settings **incl. passwords** | ignored — never commit |
+| `1c-project.json` | connection settings **incl. passwords**, `checkMode` | ignored — never commit |
 | `.1c-state.json` | last synced repository version | ignored |
 | `src/` (configurable) | the XML dump Claude edits | commit it |
 | `.1c-temp/`, `.1c-work/` | scratch: full dumps, logs, reports | ignored |
@@ -68,6 +72,11 @@ Details: [docs/architecture.md](docs/architecture.md) ·
 Change detection is version-based: the skill remembers the last consumed repository
 version and asks the designer for a report from `N+1` — a non-empty report means
 "update before you start".
+
+The post-load check is set per project with `"checkMode"` in `1c-project.json`:
+`"modules"`, `"config"` or `"none"`. Claude asks during setup (and once, on the first
+task, in a project set up before the setting existed). To change it later, edit the key
+or tell Claude to.
 
 ## Testing
 

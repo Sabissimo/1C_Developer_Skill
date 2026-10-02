@@ -1,0 +1,6 @@
+Соединение с хранилищем конфигурации не установлено
+Синтаксических ошибок не обнаружено!
+Ошибок не обнаружено
+Connection to the configuration repository is not established
+No syntax errors found!
+No errors found

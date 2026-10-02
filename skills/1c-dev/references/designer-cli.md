@@ -30,6 +30,35 @@ documentation: 1C:Enterprise Administrator Guide, "Command-line startup options"
 | `/DumpConfigToFiles <dir> [-update -force]` | Dump configuration to XML | `-update` = incremental via `ConfigDumpInfo.xml`: touches only changed files, removes deleted |
 | `/LoadConfigFromFiles <dir> [-files "a,b"] [-listFile <file>] [-updateConfigDumpInfo]` | Load XML into main configuration | Partial load via `-listFile` (one absolute path per line, UTF-8 BOM); `-updateConfigDumpInfo` keeps the incremental-dump index in sync |
 | `/UpdateDBCfg` | Apply main configuration to the database | Needs no active sessions; on a dev base this is instant |
+| `/CheckModules -ThinClient -Server` | Syntax check of every module | **Without a mode flag it checks nothing and still reports success.** Exit 101 = errors found |
+| `/CheckConfig -ConfigLogIntegrity -IncorrectReferences -ThinClient -Server` | Full configuration check | Superset of the module check. Exit 101 = errors found |
+
+## Check output (`/CheckModules`, `/CheckConfig`)
+
+Verified on 8.3.19.1351. Neither command can be limited to chosen modules — both scan the
+whole configuration; `check-config` narrows the *report*, not the work.
+
+```
+Соединение с хранилищем конфигурации не установлено
+{Документ.Инвентаризация.МодульОбъекта(3,11)}: Переменная не определена (ИмяПеременной)
+	Сообщить(<<?>>ИмяПеременной); (Проверка: Сервер)
+{Документ.Инвентаризация.Форма.ФормаДокумента.Форма(9,1)}: Ожидается ключевое слово 'КонецЕсли' ('EndIf')
+<<?>>КонецПроцедуры (Проверка: Тонкий клиент)
+```
+
+- Exit code **101** = the check ran and found errors; `0` = clean; `1` = the designer
+  could not start the check (e.g. `Информационная база не обнаружена!`).
+- A finding is one `{<module id>(<line>,<col>)}: <message>` line followed by the source
+  line with `<<?>>` at the error position. The same finding is printed once per checked
+  mode.
+- The **module id follows the configuration's script variant, not the UI language**: a
+  Russian-variant configuration prints `Документ.….МодульОбъекта` even under `/Len`; only
+  the message text is translated.
+- Clean results read `Синтаксических ошибок не обнаружено!` / `Ошибок не обнаружено`
+  (`No syntax errors found!` / `No errors found`). All four trip
+  `DESIGNER_ERROR_PATTERN`, so check logs have their own parser.
+- The first line is printed for any repository-bound base opened without repository
+  credentials. It is a notice, not an error.
 
 ## Log & report encodings
 
