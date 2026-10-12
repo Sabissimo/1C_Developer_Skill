@@ -310,7 +310,13 @@ repo_versions_from_report() {
     # when the file name ends in .txt; some builds write plain text. Handle both.
     local text
     text="$(read_text_smart "$1" | tr -d '\0')"
-    if printf '%s' "$text" | head -c 64 | grep -q 'MOXCEL' || printf '%s' "$text" | grep -q '{"#","'; then
+    # Detect the MXL format with shell pattern matching, not a `printf | grep -q` pipeline:
+    # under `set -o pipefail` grep -q exits on the first match, printf gets SIGPIPE on a
+    # large (>64 KB) report, the pipeline is "false", and the plain-text branch below
+    # silently finds zero versions ("hasChanges":false while the repo moved on).
+    local head64
+    head64="$(printf '%s' "$text" | head -c 64 || true)"
+    if [[ "$head64" == *MOXCEL* ]] || [[ "$text" == *'{"#","'* ]]; then
         # MXL: versions are cell pairs — a {"#","Версия:"} label cell whose next string
         # cell holds the number. "Версия конфигурации:" etc. must not match.
         printf '%s\n' "$text" \
