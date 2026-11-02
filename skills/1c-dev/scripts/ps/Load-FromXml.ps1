@@ -37,6 +37,14 @@ foreach ($relative in $loadPaths) {
     $absolutePaths += (Resolve-Path -LiteralPath $absolute).Path
 }
 
+# A local named after a common module loads and passes /CheckConfig, then fails at run time:
+# refuse before the designer runs. The edited paths are checked, form modules included.
+$collisions = Find-ModuleNameCollisions $context.XmlDir $paths
+if ($collisions.Count -gt 0) {
+    Exit-WithError $EXIT_CHECK_FAILED ("Variables named after common modules (they fail at run time): " +
+        (Format-ModuleNameCollisions $collisions)) @{ collisions = $collisions }
+}
+
 # The designer reads the list file: absolute Windows paths, one per line, UTF-8 with BOM.
 $designerListFile = Join-Path $context.WorkDir 'load-list.txt'
 Write-TextUtf8Bom $designerListFile (($absolutePaths -join "`r`n") + "`r`n")

@@ -117,6 +117,9 @@ For every task that changes configuration files:
    a. `load-from-xml --files "<same file list>"` — partial load + DB update. A form
       module (`…/Ext/Form/Module.bsl`) is loaded through its `…/Ext/Form.xml`; the
       script makes that substitution itself, so pass the paths you edited.
+      **Exit 5** here means an edited module assigns a local named after a common
+      module (`collisions` lists file, line, name) — it would load and fail at run
+      time. Rename the variable and load again; nothing was loaded.
    b. `check-config --files "<same file list>"` — only after the load returned `ok`.
       The project's `checkMode` says which checks are allowed, the file list says which
       are needed (`.xml` → integrity, module → syntax; `always` runs both regardless);
@@ -160,6 +163,9 @@ specific finding is the line above it in `logFile`. Fix the `.xml` and load agai
   first** — the repository takes the configuration state, not the files.
 - **Never commit past a failed check** (`check-config` exit 5). Fix and re-check, or stop
   and report.
+- **Read your BSL against [references/bsl-conventions.md](references/bsl-conventions.md)
+  before loading** — the designer does not compile modules on load, and every trap listed
+  there loads cleanly and fails later.
 - Designer operations can take minutes on big configurations — use generous tool
   timeouts (10 min) for `update-from-repo`, full `sync-xml` and `check-config`.
 - If any script returns `ok:false`, read its `logFile` for the full designer log before
@@ -174,3 +180,4 @@ specific finding is the line above it in `logFile`. Fix the `.xml` and load agai
 - [references/designer-cli.md](references/designer-cli.md) — the underlying designer batch commands
 - [references/file-to-object-map.md](references/file-to-object-map.md) — path → object mapping rules
 - [references/troubleshooting.md](references/troubleshooting.md) — common failures and fixes
+- [references/bsl-conventions.md](references/bsl-conventions.md) — BSL, query, dump and designer traps that load cleanly and fail later

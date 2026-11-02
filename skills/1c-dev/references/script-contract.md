@@ -20,7 +20,7 @@ same commit.
   | 2 | missing/invalid `1c-project.json`, or no 1C platform installed |
   | 3 | repository lock conflict (object held by another user) |
   | 4 | bad script arguments |
-  | 5 | the configuration check ran and found errors (`check-config` only) |
+  | 5 | a check found errors: `check-config`, or the pre-load name check of `load-from-xml` |
 - **Designer calls:** always append `/DisableStartupDialogs /DisableStartupMessages
   /Out <workdir>/<name>.log`; treat as failed when exit code ≠ 0 **or** the log contains
   error-marker lines (see `DESIGNER_ERROR_PATTERN` in the cores).
@@ -108,6 +108,15 @@ Map changed files to metadata objects and lock them in the repository.
 ### load-from-xml
 Partial load of edited files into the main configuration + DB update.
 - Args: `--files` / `--list-file` (paths relative to `xmlDir`), required.
+- **Before the designer runs**, every listed `.bsl` (form modules included, as passed) is
+  scanned for an assignment at the start of a line — `<name> = …`, not `==` — whose `<name>`
+  is a directory under `<xmlDir>/CommonModules`. Such a local loads and passes `/CheckConfig`,
+  then fails at run time (references/bsl-conventions.md). Any hit stops the script with
+  exit 5, no list file written and no designer call:
+  `{"ok":false,"error":"Variables named after common modules …","collisions":[{"file":"<path>","line":<int>,"name":"<name>"}]}`.
+  The match is the same shape in both variants (PowerShell: letters, digits, `_`; bash: on
+  bytes, a run of non-space, non-ASCII-punctuation bytes or `_`); the name lookup is the
+  file system's, case-insensitive on Windows.
 - A form module (`…/Ext/Form/Module.bsl`) is replaced by its form (`…/Ext/Form.xml`) and
   the list is deduplicated: the designer rejects the module file on its own
   (`Неизвестный объект метаданных …Form.<Имя>.Ext`) and loads it with the form.

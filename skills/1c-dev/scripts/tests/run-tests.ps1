@@ -52,6 +52,31 @@ if ($lockExit -ne $EXIT_USAGE -or $lockResult -notlike '*"ok":false*' -or
 }
 Remove-Item -LiteralPath $lockProject -Recurse -Force
 
+# ---- load-from-xml, whole script: a local named after a common module stops it with exit 5 before any designer call ----
+$caseCount++
+$nameProject = Join-Path $env:TEMP "1c-dev-test-names-$PID"
+New-Item -ItemType Directory -Path (Join-Path $nameProject 'src\CommonModules\Сотрудники') -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $nameProject 'src\Catalogs\Товары\Ext') -Force | Out-Null
+[IO.File]::WriteAllText((Join-Path $nameProject $CONFIG_FILE_NAME),
+    '{"infobase":{"server":"none","base":"none"},"repository":{"path":"none"},"xmlDir":"src","tempXmlDir":".1c-temp"}',
+    (New-Object Text.UTF8Encoding($false)))
+[IO.File]::WriteAllText((Join-Path $nameProject 'src\Catalogs\Товары\Ext\ObjectModule.bsl'),
+    (@("Процедура Тест()", "`tСотрудники = Новый Массив;", "`tЕсли Сотрудники = 1 Тогда", "`t`tЭлементы.Сотрудники = 1;", "`tКонецЕсли;", "`tДругоеИмя = 1;", "`tСотрудники == 2;", "КонецПроцедуры") -join "`r`n"), (New-Object Text.UTF8Encoding($true)))
+$nameOutput = @(& $hostExe -NoProfile -NonInteractive -File "$testsDir\..\ps\Load-FromXml.ps1" -ProjectDir $nameProject -Files 'Catalogs/Товары/Ext/ObjectModule.bsl' 2>$null)
+$nameExit = $LASTEXITCODE
+$nameResult = "$($nameOutput | Select-Object -Last 1)"
+$nameListFile = Join-Path (Join-Path $nameProject $WORK_DIR_NAME) 'load-list.txt'
+$nameParsed = $null
+try { $nameParsed = $nameResult | ConvertFrom-Json } catch { }
+if ($nameExit -ne $EXIT_CHECK_FAILED -or $null -eq $nameParsed -or $nameParsed.ok -ne $false -or
+    @($nameParsed.collisions).Count -ne 1 -or $nameParsed.collisions[0].name -ne 'Сотрудники' -or
+    $nameParsed.collisions[0].line -ne 2 -or $nameParsed.collisions[0].file -ne 'Catalogs/Товары/Ext/ObjectModule.bsl' -or
+    (Test-Path -LiteralPath $nameListFile)) {
+    Write-Host "FAIL load-from-xml module-name collision: exit $nameExit, result '$nameResult', load list written: $(Test-Path -LiteralPath $nameListFile)"
+    $failures++
+}
+Remove-Item -LiteralPath $nameProject -Recurse -Force
+
 # ---- objects.xml generation ----
 $caseCount++
 $outFile = Join-Path $env:TEMP "1c-dev-test-objects.xml"

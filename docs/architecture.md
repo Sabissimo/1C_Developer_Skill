@@ -91,6 +91,13 @@ one rewrite: a form module (`…/Ext/Form/Module.bsl`) is listed as its form
 (`…/Ext/Form.xml`). The designer does not accept the module file as a unit of its own
 and loads it together with the form.
 
+**Pre-load name check.** Before the designer runs, `load-from-xml` scans the edited
+modules for a local assigned under a common module's name — a directory under
+`<xmlDir>/CommonModules`. Such code loads and passes every designer check, then fails at
+run time, so it is the one BSL mistake the skill refuses on its own (exit 5,
+`collisions`). The other traps of that kind are a reading list,
+`references/bsl-conventions.md`.
+
 **Post-load check.** What runs between load and commit is decided in two steps. The
 project's `checkMode` in `1c-project.json` says what is *allowed*: `auto` (integrity and
 modules), `integrity`, `modules` or `none`. The files edited in the task say what is

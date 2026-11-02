@@ -56,6 +56,28 @@ if [ "$lock_exit" != "$EXIT_USAGE" ] || [ "$lock_message_ok" != "yes" ] || [ -e 
 fi
 rm -rf "$lock_project"
 
+# ---- load-from-xml, whole script: a local named after a common module stops it with exit 5 before any designer call ----
+case_count=$((case_count + 1))
+name_project="$(mktemp -d -t 1c-dev-test-names-XXXX)"
+mkdir -p "$name_project/src/CommonModules/Сотрудники" "$name_project/src/Catalogs/Товары/Ext"
+printf '%s\n' '{"infobase":{"server":"none","base":"none"},"repository":{"path":"none"},"xmlDir":"src","tempXmlDir":".1c-temp"}' \
+    > "$name_project/$CONFIG_FILE_NAME"
+printf '\xEF\xBB\xBFПроцедура Тест()\r\n\tСотрудники = Новый Массив;\r\n\tЕсли Сотрудники = 1 Тогда\r\n\t\tЭлементы.Сотрудники = 1;\r\n\tКонецЕсли;\r\n\tДругоеИмя = 1;\r\n\tСотрудники == 2;\r\nКонецПроцедуры\r\n' > "$name_project/src/Catalogs/Товары/Ext/ObjectModule.bsl"
+name_output="$(bash "$TESTS_DIR/../sh/load-from-xml.sh" --project-dir "$name_project" --files "Catalogs/Товары/Ext/ObjectModule.bsl" 2>/dev/null)"
+name_exit=$?
+name_result="$(printf '%s\n' "$name_output" | tail -n 1)"
+name_list_file="$name_project/$WORK_DIR_NAME/load-list.txt"
+case "$name_result" in
+    *'"ok":false'*'"collisions":[{"file":"Catalogs/Товары/Ext/ObjectModule.bsl","line":2,"name":"Сотрудники"}]'*) name_result_ok="yes" ;;
+    *) name_result_ok="no" ;;
+esac
+if [ "$name_exit" != "$EXIT_CHECK_FAILED" ] || [ "$name_result_ok" != "yes" ] || [ -e "$name_list_file" ]; then
+    echo "FAIL load-from-xml module-name collision: exit $name_exit, result '$name_result'"
+    [ -e "$name_list_file" ] && echo "  load list was written"
+    failures=$((failures + 1))
+fi
+rm -rf "$name_project"
+
 # ---- objects.xml generation ----
 case_count=$((case_count + 1))
 out_file="$(mktemp -t 1c-dev-test-objects-XXXX.xml)"

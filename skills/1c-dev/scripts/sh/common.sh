@@ -29,6 +29,13 @@ CHECK_MODES="$CHECK_MODE_ALWAYS, $CHECK_MODE_AUTO, $CHECK_MODE_MODULES, $CHECK_M
 
 # Dump paths (relative to xmlDir, '/'-separated) of a form's module and of the form itself.
 FORM_MODULE_SUFFIX="/Ext/Form/Module.bsl"
+COMMON_MODULES_DIR="CommonModules"
+MODULE_FILE_EXTENSION=".bsl"
+# An assignment at the start of a line: "<name> = ...", not "<name> == ...". Matched on bytes
+# (LC_ALL=C): a name is a run of non-space, non-ASCII-punctuation bytes or "_", which takes in
+# Cyrillic UTF-8 — Git Bash locales cannot be trusted with \w on Cyrillic.
+ASSIGNMENT_PATTERN_ERE='^[[:space:]]*([^[:space:][:punct:]]|_)+[[:space:]]*=([^=]|$)'
+NAME_AT_LINE_START_SED='s/^([0-9]+):[[:space:]]*(([^[:space:][:punct:]]|_)+).*/\1:\2/'
 FORM_FILE_SUFFIX="/Ext/Form.xml"
 
 # Designer log lines matching this mean failure even when the exit code is 0.
@@ -239,6 +246,49 @@ resolve_load_path() {
         *"$FORM_MODULE_SUFFIX") printf '%s' "${normalized%"$FORM_MODULE_SUFFIX"}$FORM_FILE_SUFFIX" ;;
         *) printf '%s' "$normalized" ;;
     esac
+}
+
+# ---- Variables named after common modules ----
+module_name_collisions() {
+    # module_name_collisions <relative-path>... -> one "file|line|name" line per collision.
+    # A common module's name is a read-only property of the global context, so a local
+    # assigned under it ("Сотрудники = Новый Массив") loads, passes /CheckConfig and fails
+    # only at run time. Reports assignments whose name is a directory under
+    # $XML_DIR/CommonModules. Declaring the name as a parameter is legal and is not looked
+    # at; assigning to such a parameter is reported too — rename it.
+    local relative absolute number name
+    for relative in "$@"; do
+        case "$relative" in *"$MODULE_FILE_EXTENSION") ;; *) continue ;; esac
+        absolute="$XML_DIR/$relative"
+        [ -f "$absolute" ] || continue
+        while IFS=: read -r number name; do
+            if [ -n "$name" ] && [ -d "$XML_DIR/$COMMON_MODULES_DIR/$name" ]; then
+                printf '%s|%s|%s\n' "$(printf '%s' "$relative" | tr '\\' '/')" "$number" "$name"
+            fi
+        done < <(LC_ALL=C sed '1s/^\xEF\xBB\xBF//' "$absolute" | tr -d '\r' \
+                 | LC_ALL=C grep -naE "$ASSIGNMENT_PATTERN_ERE" \
+                 | LC_ALL=C sed -E "$NAME_AT_LINE_START_SED" || true)
+    done
+}
+
+module_name_collisions_json() {
+    # module_name_collisions_json <"file|line|name" lines> -> the JSON array for "collisions".
+    local items="" file line name
+    while IFS='|' read -r file line name; do
+        [ -n "$file" ] || continue
+        items="$items${items:+,}{\"file\":\"$(json_escape "$file")\",\"line\":$line,\"name\":\"$(json_escape "$name")\"}"
+    done <<< "$1"
+    printf '[%s]' "$items"
+}
+
+module_name_collisions_text() {
+    # module_name_collisions_text <"file|line|name" lines> -> "Сотрудники (path:12), ...".
+    local text="" file line name
+    while IFS='|' read -r file line name; do
+        [ -n "$file" ] || continue
+        text="$text${text:+, }$name ($file:$line)"
+    done <<< "$1"
+    printf '%s' "$text"
 }
 
 # ---- Designer invocation ----

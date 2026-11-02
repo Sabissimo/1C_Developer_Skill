@@ -56,6 +56,14 @@ for relative in "${load_paths[@]}"; do
 "
     count=$((count + 1))
 done
+# A local named after a common module loads and passes /CheckConfig, then fails at run time:
+# refuse before the designer runs. The edited paths are checked, form modules included.
+collisions="$(module_name_collisions "${paths[@]}")"
+if [ -n "$collisions" ]; then
+    die "$EXIT_CHECK_FAILED" "Variables named after common modules (they fail at run time): $(module_name_collisions_text "$collisions")" \
+        "\"collisions\":$(module_name_collisions_json "$collisions")"
+fi
+
 designer_list_file="$WORK_DIR/load-list.txt"
 write_utf8_bom "$designer_list_file" "$absolute_lines"
 

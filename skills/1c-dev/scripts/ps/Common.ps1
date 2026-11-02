@@ -31,6 +31,10 @@ $CHECK_MODES = @($CHECK_MODE_ALWAYS, $CHECK_MODE_AUTO, $CHECK_MODE_MODULES, $CHE
 
 # Dump paths (relative to xmlDir, '/'-separated) of a form's module and of the form itself.
 $FORM_MODULE_SUFFIX = '/Ext/Form/Module.bsl'
+$COMMON_MODULES_DIR = 'CommonModules'
+$MODULE_FILE_EXTENSION = '.bsl'
+# An assignment at the start of a line: "<name> = ...", not "<name> == ...".
+$ASSIGNMENT_PATTERN = '^\s*([\p{L}\p{Nd}_]+)\s*=(?!=)'
 $FORM_FILE_SUFFIX   = '/Ext/Form.xml'
 
 # Designer log lines matching this mean failure even when the exit code is 0.
@@ -204,6 +208,38 @@ function Resolve-LoadPath([string]$RelativePath) {
         return $normalized.Substring(0, $normalized.Length - $FORM_MODULE_SUFFIX.Length) + $FORM_FILE_SUFFIX
     }
     return $normalized
+}
+
+# ---- Variables named after common modules ----
+function Find-ModuleNameCollisions([string]$XmlDir, [string[]]$RelativePaths) {
+    # A common module's name is a read-only property of the global context, so a local
+    # assigned under it ("Сотрудники = Новый Массив") loads, passes /CheckConfig and fails
+    # only at run time. Returns one {file, line, name} per assignment whose name is a
+    # directory under <xmlDir>/CommonModules. Declaring the name as a parameter is legal and
+    # is not looked at; assigning to such a parameter is reported too — rename it.
+    $collisions = @()
+    $modulesDir = Join-Path $XmlDir $COMMON_MODULES_DIR
+    foreach ($relative in $RelativePaths) {
+        if (-not $relative.EndsWith($MODULE_FILE_EXTENSION, [StringComparison]::OrdinalIgnoreCase)) { continue }
+        $absolute = Join-Path $XmlDir ($relative -replace '/', '\')
+        if (-not (Test-Path -LiteralPath $absolute -PathType Leaf)) { continue }
+        $lineNumber = 0
+        foreach ($line in (Get-Content -LiteralPath $absolute -Encoding UTF8)) {
+            $lineNumber++
+            $match = [regex]::Match($line, $ASSIGNMENT_PATTERN)
+            if (-not $match.Success) { continue }
+            $name = $match.Groups[1].Value
+            if (Test-Path -LiteralPath (Join-Path $modulesDir $name) -PathType Container) {
+                $collisions += [ordered]@{ file = ($relative -replace '\\', '/'); line = $lineNumber; name = $name }
+            }
+        }
+    }
+    return ,$collisions
+}
+
+function Format-ModuleNameCollisions($Collisions) {
+    # One line for the error message: "Сотрудники (Catalogs/X/Ext/ObjectModule.bsl:12), ...".
+    return (@($Collisions | ForEach-Object { "$($_.name) ($($_.file):$($_.line))" }) -join ', ')
 }
 
 # ---- Designer invocation ----
