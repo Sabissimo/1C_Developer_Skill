@@ -39,7 +39,10 @@ $FORM_FILE_SUFFIX   = '/Ext/Form.xml'
 
 # Designer log lines matching this mean failure even when the exit code is 0.
 $DESIGNER_ERROR_PATTERN = '(?i)(ошибк|error|не удалось|не обнаружен|failed|failure|отказано|access denied|исключительн|нет доступа)'
-$LOCK_CONFLICT_PATTERN  = '(?i)(захвачен|заблокирован|locked by|already locked|не может быть захвачен)'
+# A conflict names the other holder: "Объект захвачен для редактирования другим пользователем: …".
+# A lock just taken is logged as "Объект захвачен для редактирования: <Имя>" — so the bare
+# word "захвачен" is not a conflict.
+$LOCK_CONFLICT_PATTERN  = '(?i)(другим пользователем|заблокирован|locked by|already locked|не может быть захвачен)'
 
 # ---- Output helpers ----
 function Write-Info([string]$Message) {

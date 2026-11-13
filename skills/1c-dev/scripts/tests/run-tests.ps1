@@ -120,6 +120,26 @@ if (($versions -join ',') -ne '1,999,2555,12345') {
 }
 Remove-Item -LiteralPath $reportFile -Force
 
+# ---- lock conflicts: a lock just taken is not a conflict, another user's lock is ----
+$caseCount++
+$lockLog = @(
+    'Объект получен из хранилища: Документ.ЗаказПокупателя',
+    'Объект захвачен для редактирования: Документ.ЗаказПокупателя',
+    'Захват объектов в хранилище успешно завершен'
+)
+$falseConflicts = @($lockLog | Where-Object { $_ -match $LOCK_CONFLICT_PATTERN })
+if ($falseConflicts.Count -ne 0) {
+    Write-Host "FAIL lock conflict: a successful lock was read as a conflict"
+    $falseConflicts | ForEach-Object { Write-Host "  $_" }
+    $failures++
+}
+$caseCount++
+$conflictLine = 'Объект захвачен для редактирования другим пользователем: Документ.ЗаказПокупателя (Иванов)'
+if ($conflictLine -notmatch $LOCK_CONFLICT_PATTERN) {
+    Write-Host "FAIL lock conflict: another user's lock was not recognised"
+    $failures++
+}
+
 # ---- designer errors: object names containing error words are not failures ----
 $caseCount++
 $log = @(

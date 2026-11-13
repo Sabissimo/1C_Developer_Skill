@@ -26,6 +26,13 @@ Same behavior, same exit codes; the **last stdout line is a JSON result** (`ok`,
 `error`, extras). Full contract: [references/script-contract.md](references/script-contract.md).
 Run all scripts from the 1C project directory (or pass `--project-dir` / `-ProjectDir`).
 
+On a Windows host without `jq`, prefer the PowerShell variant. The bash scripts read
+`1c-project.json` through `jq`, then `python3`/`python`, and `command -v python3` finds the
+Microsoft Store alias in `AppData/Local/Microsoft/WindowsApps/` first. With no Store Python
+installed, that alias prints `Python was not found` and exits non-zero, so the script fails
+before any designer call. Installing `jq`, or turning the alias off (Settings → Apps → App
+execution aliases), makes bash usable again.
+
 Exit codes: `0` ok · `1` designer failed · `2` bad config/environment · `3` **lock
 conflict** · `4` bad arguments · `5` **the check found errors**.
 
@@ -55,6 +62,9 @@ When the user says a project is a 1C project and `1c-project.json` doesn't exist
    module errors elsewhere are reported but do not.
 2. Write `1c-project.json` (schema in script-contract.md) into the project root.
 3. Ensure `.gitignore` covers: `1c-project.json`, `.1c-state.json`, `.1c-temp/`, `.1c-work/`.
+   If the project is under git, add a `.gitattributes` holding `* -text`: the tree has to
+   match the designer's output byte for byte (see
+   [references/bsl-conventions.md](references/bsl-conventions.md), Files of the dump).
 4. Run `test-connection` — stop and report if it fails.
 5. Run `sync-xml` (initial full dump into the XML dir).
 6. Run `get-repo-changes --full` and record the reported `latestVersion` by running
@@ -87,6 +97,13 @@ For every task that changes configuration files:
      не захвачен в хранилище!`. Locking first is a precondition, not etiquette — never
      skip this step. If mapping fails (exit 4), lock by explicit names:
      `lock-objects --objects "Catalog.Товары"`.
+   - Lock the **whole chain**: the object a file is, plus every owner above it. The
+     mapping yields one object per file — a form file gives `Document.X.Form.Y`, a nested
+     subsystem file `Subsystems/A/Subsystems/B.xml` gives the root `Subsystem.A` — so add
+     the rest by name (`--objects "Document.X"`, `--objects "Subsystem.A.Subsystem.B"`).
+     A missing link stops the load with `объект метаданных Document.X.Form.Y не захвачен в
+     хранилище!` — one link per designer round trip; for a nested subsystem the error
+     names the *root* one.
 3. **Edit** the XML/BSL files. Rules:
    - Preserve encoding: files are UTF-8 **with BOM** — do not strip it.
    - Never edit `ConfigDumpInfo.xml` by hand.
@@ -96,10 +113,17 @@ For every task that changes configuration files:
    - A **new** object must be loaded together with its parent, because the parent is
      what enumerates its children: a new form, attribute or template needs the owner's
      `.xml` in the file list; a new *top-level* object needs `Configuration.xml`, and
-     therefore the root `Configuration` object locked. Watch the trap that
+     therefore the root `Configuration` object locked. For a new form or template list
+     the owner's `.xml` and the child's stub (`Forms/Форма.xml`) **only** — nothing under
+     the child's directory: files of an object that does not exist yet cannot be mapped
+     (`Неизвестный объект метаданных <Владелец>.Form.Форма.Ext`), and the designer reads
+     the new child's `Ext/` itself. Watch the trap that
      `CommonForms/` and `CommonTemplates/` are themselves top-level (see
      [references/file-to-object-map.md](references/file-to-object-map.md)) — a new
      common form takes the root lock, a new form on an existing catalog does not.
+   - Changing an object's internal id (`uuid=`) also makes it a new object — see
+     [references/bsl-conventions.md](references/bsl-conventions.md), Designer and
+     repository.
    - Partial load **creates new objects fine, including top-level ones** — nothing is
      refused. What differs is cost: a new *top-level* object changes
      `Configuration.xml`, and loading that file reconciles the whole object tree and
@@ -116,7 +140,9 @@ For every task that changes configuration files:
 4. **Finish the task**:
    a. `load-from-xml --files "<same file list>"` — partial load + DB update. A form
       module (`…/Ext/Form/Module.bsl`) is loaded through its `…/Ext/Form.xml`; the
-      script makes that substitution itself, so pass the paths you edited.
+      script makes that substitution itself, so pass the paths you edited (what the
+      designer accepts: [references/file-to-object-map.md](references/file-to-object-map.md),
+      Load list).
       **Exit 5** here means an edited module assigns a local named after a common
       module (`collisions` lists file, line, name) — it would load and fail at run
       time. Rename the variable and load again; nothing was loaded.
@@ -143,7 +169,7 @@ For every task that changes configuration files:
    and `unlock-objects`.
 
 Multiple `lock-objects` calls accumulate in `.1c-work/locked-objects.json`; `commit-to-repo`
-commits the whole recorded set at once.
+commits the whole recorded set at once — another session's locks included (below).
 
 The check setting belongs to the project, not to the task: do not skip a configured check
 to save time, and do not run one the project turned off. Change it only when the user
@@ -155,6 +181,39 @@ always compiles the whole configuration, and the script narrows the report, not 
 If `load-from-xml` fails with `При проверке метаданных обнаружены ошибки!`, that is the
 same integrity check, run by `/UpdateDBCfg`: the metadata you loaded is inconsistent. The
 specific finding is the line above it in `logFile`. Fix the `.xml` and load again.
+
+## Parallel sessions on one project
+
+The scripts keep no per-session state: every session working on one project shares one
+infobase, one `.1c-work/` and one working tree. Consequences:
+
+- **`commit-to-repo` commits the whole ledger.** It takes no object list: it commits
+  everything in `.1c-work/locked-objects.json`, which every session's `lock-objects`
+  unions into. Another session's commit puts your objects into the хранилище and releases
+  your locks, and the reverse. Objects that were locked but not yet loaded commit as
+  `Объект не был изменен` — harmless in itself, but the locks are gone and the next
+  `load-from-xml` fails with `не захвачен в хранилище!`.
+- **`.1c-work/objects.xml` is rewritten by every `lock-objects` call.** Two concurrent
+  calls can overwrite it between one script writing it and the designer reading it: the
+  lock lands on the other session's object while the result reports yours.
+- **Git is shared.** Another session's `git add -A` takes your uncommitted edits into its
+  commit. And never `git stash` or check out the whole tree while `xmlDir` holds edits or
+  a load runs: the designer reads the files and writes `ConfigDumpInfo.xml` during the
+  load.
+
+So, whenever a project may have more than one session:
+
+- Before `lock-objects`, read `.1c-work/locked-objects.json` and `git status`. Work that
+  is not yours means stop and ask.
+- After locking, and again before `commit-to-repo`, confirm the ledger holds only your
+  objects. If your locks vanished mid-task, run `lock-objects` again and load again.
+- After the commit, `.1c-work/commit-to-repo.log` says per object `Объект помещен в
+  хранилище` or `Объект не был изменен`; the latter on an object you edited means its load
+  never reached the configuration.
+- Stage git with explicit paths, never `git add -A`.
+- Never recover with `update-from-repo`: the incremental dump rewrites the files of every
+  object the update touched, its full-dump fallback rewrites all of them, and un-loaded
+  edits in those files are lost.
 
 ## Hard rules
 

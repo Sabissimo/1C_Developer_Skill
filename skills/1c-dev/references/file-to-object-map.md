@@ -28,6 +28,12 @@ sync.
 7. Unknown top-level directory → error (exit 4). Lock manually via
    `--objects "Class.Имя"` and file an issue.
 
+Each path yields **one** object — the one the file is. A load needs that object plus every
+owner above it locked (SKILL.md, Workflow 3, step 2), so owners are added by name: a form
+file gives `Class.Obj.Form.Форма` without `Class.Obj`, and a nested subsystem
+(`Subsystems/A/Subsystems/B.xml`) gives the root `Subsystem.A` without
+`Subsystem.A.Subsystem.B`.
+
 ## Examples
 
 | Path | Object |
@@ -41,6 +47,26 @@ sync.
 | `Configuration.xml` | root `Configuration` |
 | `Ext/SessionModule.bsl` | root `Configuration` |
 | `ConfigDumpInfo.xml` | — (skipped) |
+
+## Load list
+
+What the designer accepts in the `-listFile` of `/LoadConfigFromFiles` differs from the
+lock mapping above. `load-from-xml` writes the final list to `.1c-work/load-list.txt`.
+
+- **An object's own files map directly**: `<Dir>/<Obj>.xml`, `Ext/ObjectModule.bsl`,
+  `Ext/Module.bsl`, a form's `Forms/<Форма>/Ext/Form.xml`, a template's
+  `Templates/<Макет>/Ext/Template.xml`. A DCS schema loads on its own this way in seconds,
+  as `<Class>.<Obj>.Template.<Макет>`, with the template and its owner locked.
+- **A form module is one level too deep.** `…/Forms/<Форма>/Ext/Form/Module.bsl` alone
+  fails with `Неизвестный объект метаданных <Class>.<Obj>.Form.<Форма>.Ext`, and a common
+  form's `CommonForms/<Форма>/Ext/Form/Module.bsl` with `Неизвестный объект метаданных
+  CommonForm.<Форма>.Ext`. `load-from-xml` lists the form's `…/Ext/Form.xml` instead; the
+  module comes with it. A common form has no owner to lock — only `CommonForm.<Форма>`.
+- **A new form or template**: the owner's `.xml` plus the child's stub
+  (`Forms/<Форма>.xml`), nothing under the child's directory — files of an object that does
+  not exist yet cannot be mapped (same `Неизвестный объект метаданных …Ext` error), and the
+  designer reads the new child's `Ext/` itself. A new top-level object needs
+  `Configuration.xml` (SKILL.md, Workflow 3).
 
 ## Directory → class table
 
@@ -93,8 +119,8 @@ sync.
 | IntegrationServices | IntegrationService |
 | Bots | Bot |
 
-Known v1 simplification: nested parts of `ExternalDataSources` (tables, cubes) and
-`CalculationRegisters` recalculations map to their top-level object.
+Known v1 simplification: nested parts of `ExternalDataSources` (tables, cubes),
+`CalculationRegisters` recalculations and nested subsystems map to their top-level object.
 
 ## File → module id (for `check-config`)
 

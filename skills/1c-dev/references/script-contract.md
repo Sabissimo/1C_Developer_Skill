@@ -100,7 +100,9 @@ Map changed files to metadata objects and lock them in the repository.
   `--objects "Catalog.X,Document.Y"` to bypass mapping.
 - Generates `.1c-work/objects.xml`, runs `/ConfigurationRepositoryLock -Objects <file>`.
 - On conflict (log matches `LOCK_CONFLICT_PATTERN`): **exit 3**, result includes the
-  conflicting log lines. Nothing may be edited after this failure.
+  conflicting log lines. Nothing may be edited after this failure. A conflict line names the
+  other holder ("…другим пользователем: <Имя> (<пользователь>)"); the line the designer writes
+  for a lock it has just taken ("Объект захвачен для редактирования: <Имя>") is not one.
 - On success appends the objects to `.1c-work/locked-objects.json` (deduplicated) so
   commit/unlock know the full set.
 - Result: `{"ok":true,"objects":["Catalog.X", ...]}`

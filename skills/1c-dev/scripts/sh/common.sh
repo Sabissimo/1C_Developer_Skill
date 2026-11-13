@@ -40,7 +40,10 @@ FORM_FILE_SUFFIX="/Ext/Form.xml"
 
 # Designer log lines matching this mean failure even when the exit code is 0.
 DESIGNER_ERROR_PATTERN='(ошибк|Ошибк|ОШИБК|error|Error|ERROR|не удалось|Не удалось|не обнаружен|failed|Failed|failure|отказано|access denied|исключительн|Исключительн|нет доступа)'
-LOCK_CONFLICT_PATTERN='(захвачен|Захвачен|заблокирован|locked by|already locked|не может быть захвачен)'
+# A conflict names the other holder: "Объект захвачен для редактирования другим пользователем: …".
+# A lock just taken is logged as "Объект захвачен для редактирования: <Имя>" — so the bare
+# word "захвачен" is not a conflict.
+LOCK_CONFLICT_PATTERN='(другим пользователем|Другим пользователем|заблокирован|Заблокирован|locked by|already locked|не может быть захвачен)'
 
 # ---- Output helpers ----
 info() { printf '%s\n' "$*" >&2; }

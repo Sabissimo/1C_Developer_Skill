@@ -85,6 +85,9 @@ top-level `Ext/` — the configuration's own modules — is the root object) and
 them; each successful lock is appended to `.1c-work/locked-objects.json`. `commit-to-repo`
 commits exactly that recorded set and clears it; `unlock-objects` is the abort path.
 A lock conflict is a dedicated exit code (3) so Claude reliably stops before editing.
+The ledger, like the rest of `.1c-work/`, belongs to the project, not to a session: two
+sessions on one project commit each other's locks (SKILL.md, Parallel sessions on one
+project). The mapping yields one object per file; owners above it are locked by name.
 
 **Load list.** `load-from-xml` passes the designer exactly the files of the task, with
 one rewrite: a form module (`…/Ext/Form/Module.bsl`) is listed as its form

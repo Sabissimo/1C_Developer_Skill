@@ -124,6 +124,22 @@ if [ "$versions" != "1 999 2555 12345" ]; then
 fi
 rm -f "$report_file"
 
+# ---- lock conflicts: a lock just taken is not a conflict, another user's lock is ----
+case_count=$((case_count + 1))
+false_conflicts="$(printf '%s\n' 'Объект получен из хранилища: Документ.ЗаказПокупателя' \
+    'Объект захвачен для редактирования: Документ.ЗаказПокупателя' \
+    'Захват объектов в хранилище успешно завершен' | grep -E "$LOCK_CONFLICT_PATTERN" || true)"
+if [ -n "$false_conflicts" ]; then
+    echo "FAIL lock conflict: a successful lock was read as a conflict"
+    printf '  %s\n' "$false_conflicts"
+    failures=$((failures + 1))
+fi
+case_count=$((case_count + 1))
+if ! printf '%s\n' 'Объект захвачен для редактирования другим пользователем: Документ.ЗаказПокупателя (Иванов)' | grep -qE "$LOCK_CONFLICT_PATTERN"; then
+    echo "FAIL lock conflict: another user's lock was not recognised"
+    failures=$((failures + 1))
+fi
+
 # ---- designer errors: object names containing error words are not failures ----
 case_count=$((case_count + 1))
 DESIGNER_LOG_TEXT='Новый объект: Константа.УведомлятьОбОшибкахМеханизмаОнлайнСервисовРО
