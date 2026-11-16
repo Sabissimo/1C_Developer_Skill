@@ -24,9 +24,9 @@ documentation: 1C:Enterprise Administrator Guide, "Command-line startup options"
 |---|---|---|
 | `/ConfigurationRepositoryReport <file> [-NBegin N] [-NEnd N]` | Version-history report | Cheapest full-stack connectivity check; scripts parse `Версия: N` / `Version: N` lines |
 | `/ConfigurationRepositoryUpdateCfg -force` | Update main configuration from the repository | `-force` answers "yes" to prompts (new objects, unbound changes) |
-| `/ConfigurationRepositoryLock -Objects <objects.xml>` | Lock objects for editing | 8.3.11+; fails if already locked by another user |
+| `/ConfigurationRepositoryLock -Objects <objects.xml>` | Lock objects for editing | 8.3.8+; fails if already locked by another user |
 | `/ConfigurationRepositoryCommit -Objects <objects.xml> -comment "<text>" [-keepLocked]` | Commit locked objects | Releases locks unless `-keepLocked` |
-| `/ConfigurationRepositoryUnlock -Objects <objects.xml> -force` | Release locks without committing | 8.3.11+ |
+| `/ConfigurationRepositoryUnlock -Objects <objects.xml> -force` | Release locks without committing | 8.3.8+ |
 | `/DumpConfigToFiles <dir> [-update -force]` | Dump configuration to XML | `-update` = incremental via `ConfigDumpInfo.xml`: touches only changed files, removes deleted |
 | `/LoadConfigFromFiles <dir> [-files "a,b"] [-listFile <file>] [-updateConfigDumpInfo]` | Load XML into main configuration | Partial load via `-listFile` (one absolute path per line, UTF-8 BOM); `-updateConfigDumpInfo` keeps the incremental-dump index in sync |
 | `/UpdateDBCfg` | Apply main configuration to the database | Needs no active sessions; on a dev base this is instant |

@@ -21,7 +21,7 @@ interview once, and then just give it tasks. Claude will, on its own:
 
 ## Requirements
 
-- Windows, 1C:Enterprise platform **8.3.11+** installed under `Program Files\1cv8`
+- Windows, 1C:Enterprise platform **8.3.10+** (the whole round-trip is verified on 8.3.10.2561) installed under `Program Files\1cv8`
 - A **server** infobase dedicated to development (no data, no other users), bound to
   the configuration repository under a **dedicated repository user**
 - Claude Code (the scripts run in PowerShell 5.1/7 **or** Git Bash — both variants ship

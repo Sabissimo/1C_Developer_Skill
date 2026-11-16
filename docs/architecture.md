@@ -145,7 +145,8 @@ goes to stderr.
 ## Design constraints
 
 - Server infobases only; the dev base is assumed data-free, so `UpdateDBCfg` always runs.
-- Requires platform 8.3.11+ (`ConfigurationRepositoryLock`/`Unlock`).
+- Requires platform 8.3.10+: partial load needs `/LoadConfigFromFiles -listFile` (8.3.10);
+  `ConfigurationRepositoryLock`/`Unlock` exist since 8.3.8. Verified end to end on 8.3.10.2561.
 - The module check covers the server and thin-client modes only; the mode list is a
   constant in the scripts, not a project setting.
 - Out of scope in v1: configuration extensions, EDT, file infobases, multi-repository

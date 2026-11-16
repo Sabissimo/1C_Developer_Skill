@@ -229,8 +229,8 @@ So, whenever a project may have more than one session:
   timeouts (10 min) for `update-from-repo`, full `sync-xml` and `check-config`.
 - If any script returns `ok:false`, read its `logFile` for the full designer log before
   deciding what to do next.
-- Requirements: Windows, 1C platform **8.3.11+** (for `/ConfigurationRepositoryLock`/
-  `Unlock`), a dedicated dev infobase bound to the repository under a dedicated
+- Requirements: Windows, 1C platform **8.3.10+** (partial load via `-listFile`; repository
+  lock/unlock exist since 8.3.8 — verified end to end on 8.3.10.2561), a dedicated dev infobase bound to the repository under a dedicated
   repository user (not shared with humans).
 
 ## References
